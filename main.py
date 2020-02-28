@@ -11,8 +11,8 @@ import numpy as np
 import nltk
 
 from models.vrnn import VRNN
-from data.data_utils import SWDADataLoader
-from data.SWDADialogCorpus import SWDADialogCorpus
+from data_apis.data_utils import SWDADataLoader
+from data_apis.SWDADialogCorpus import SWDADialogCorpus
 import params
 
 
