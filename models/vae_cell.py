@@ -131,149 +131,59 @@ class VAECell(object):
         #decode
         dec_outs_1, dec_outs_2 = self.decode(z_samples)
 
-        # # for computing BOW loss
-        # if self.config.with_bow_loss:
-        #     bow_fc1 = layers.fully_connected(dec_input_1,
-        #                                      400,
-        #                                      activation_fn=tf.tanh,
-        #                                      scope="bow_fc1")
-        #     if self.config.keep_prob < 1.0:
-        #         bow_fc1 = tf.nn.dropout(bow_fc1, self.config.keep_prob)
-        #     self.bow_logits1 = layers.fully_connected(bow_fc1,
-        #                                               self.vocab_size,
-        #                                               activation_fn=None,
-        #                                               scope="bow_project1")
-        #     print(
-        #         "self.bow_logits[1]")  #(None, vocab_size), None is batch size
-        #     print(self.bow_logits1)
-        #     # sys.exit()
+        # for computing BOW loss
+        if self.config.with_bow_loss:
+            bow_fc1 = layers.fully_connected(dec_input_1,
+                                             400,
+                                             activation_fn=tf.tanh,
+                                             scope="bow_fc1")
+            if self.config.keep_prob < 1.0:
+                bow_fc1 = tf.nn.dropout(bow_fc1, self.config.keep_prob)
+            self.bow_logits1 = layers.fully_connected(bow_fc1,
+                                                      self.vocab_size,
+                                                      activation_fn=None,
+                                                      scope="bow_project1")
+            print(
+                "self.bow_logits[1]")  #(None, vocab_size), None is batch size
+            print(self.bow_logits1)
+            # sys.exit()
 
-        #     bow_fc2 = layers.fully_connected(dec_input_2_h,
-        #                                      400,
-        #                                      activation_fn=tf.tanh,
-        #                                      scope="bow_fc2")
-        #     if self.config.keep_prob < 1.0:
-        #         bow_fc2 = tf.nn.dropout(bow_fc2, self.config.keep_prob)
-        #     self.bow_logits2 = layers.fully_connected(bow_fc2,
-        #                                               self.vocab_size,
-        #                                               activation_fn=None,
-        #                                               scope="bow_project2")
+            bow_fc2 = layers.fully_connected(dec_input_2_h,
+                                             400,
+                                             activation_fn=tf.tanh,
+                                             scope="bow_fc2")
+            if self.config.keep_prob < 1.0:
+                bow_fc2 = tf.nn.dropout(bow_fc2, self.config.keep_prob)
+            self.bow_logits2 = layers.fully_connected(bow_fc2,
+                                                      self.vocab_size,
+                                                      activation_fn=None,
+                                                      scope="bow_project2")
 
-        # with vs.variable_scope("priorNetwork") as priorScope:
-        #     if self.config.with_direct_transition:
-        #         net3 = slim.stack(prev_z_t, slim.fully_connected, [100, 100])
-        #         if self.config.keep_prob < 1.0:
-        #             net3 = tf.nn.dropout(net3, self.config.keep_prob)
-        #         p_z = slim.fully_connected(net3,
-        #                                    self.num_zt,
-        #                                    activation_fn=tf.nn.softmax)
-        #         p_z = tf.identity(p_z, name="p_z_transition")
-        #         log_p_z = tf.log(p_z + 1e-20)  # equation 5
+        with vs.variable_scope("priorNetwork") as priorScope:
+            if self.config.with_direct_transition:
+                net3 = slim.stack(prev_z_t, slim.fully_connected, [100, 100])
+                if self.config.keep_prob < 1.0:
+                    net3 = tf.nn.dropout(net3, self.config.keep_prob)
+                p_z = slim.fully_connected(net3,
+                                           self.num_zt,
+                                           activation_fn=tf.nn.softmax)
+                p_z = tf.identity(p_z, name="p_z_transition")
+                log_p_z = tf.log(p_z + 1e-20)  # equation 5
 
-        #     else:
-        #         net3 = slim.stack(h_prev, slim.fully_connected, [100, 100])
-        #         if self.config.keep_prob < 1.0:
-        #             net3 = tf.nn.dropout(net3, self.config.keep_prob)
-        #         p_z = slim.fully_connected(net3,
-        #                                    self.num_zt,
-        #                                    activation_fn=tf.nn.softmax)
-        #         log_p_z = tf.log(p_z + 1e-20)  # equation 5
+            else:
+                net3 = slim.stack(h_prev, slim.fully_connected, [100, 100])
+                if self.config.keep_prob < 1.0:
+                    net3 = tf.nn.dropout(net3, self.config.keep_prob)
+                p_z = slim.fully_connected(net3,
+                                           self.num_zt,
+                                           activation_fn=tf.nn.softmax)
+                log_p_z = tf.log(p_z + 1e-20)  # equation 5
 
-        # with vs.variable_scope("recurrence") as recScope:
-        #     recur_input = tf.concat([net2, inputs], 1,
-        #                             'recNet_inputs')  # [batch, 600]
-        #     next_state = self.state_cell(inputs=recur_input, state=state)
+        with vs.variable_scope("recurrence") as recScope:
+            recur_input = tf.concat([net2, inputs], 1,
+                                    'recNet_inputs')  # [batch, 600]
+            next_state = self.state_cell(inputs=recur_input, state=state)
 
-        # with vs.variable_scope("loss"):
-        #     self.output_tokens = output_tokens
-
-        #     labels_1 = output_tokens[0][:, 1:]
-        #     label_mask_1 = tf.to_float(tf.sign(labels_1))
-        #     labels_2 = output_tokens[1][:, 1:]
-        #     label_mask_2 = tf.to_float(tf.sign(labels_2))
-
-        #     rc_loss_1 = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        #         logits=dec_outs_1, labels=labels_1)
-        #     if True:
-        #         if self.weights is not None:
-        #             weights = tf.gather(self.weights, labels_1)
-        #             rc_loss_1 = compute_weighted_loss(rc_loss_1,
-        #                                               weights=weights)
-        #     rc_loss_1 = tf.reduce_sum(rc_loss_1 * label_mask_1,
-        #                               reduction_indices=1)
-
-        #     rc_loss_2 = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        #         logits=dec_outs_2, labels=labels_2)
-        #     if True:
-        #         if self.weights is not None:
-        #             rc_loss_2 = compute_weighted_loss(rc_loss_2,
-        #                                               weights=weights)
-        #     rc_loss_2 = tf.reduce_sum(rc_loss_2 * label_mask_2,
-        #                               reduction_indices=1)
-
-        #     kl_tmp = (log_q_z - log_p_z) * q_z
-        #     kl_tmp = tf.reduce_sum(kl_tmp, reduction_indices=1)
-
-        #     if self.config.with_BPR:
-        #         q_z_prime = tf.reduce_mean(q_z, 0)
-        #         log_q_z_prime = tf.log(q_z_prime + 1e-20)  # equation 9
-
-        #         p_z_prime = tf.reduce_mean(p_z, 0)
-        #         log_p_z_prime = tf.log(p_z_prime + 1e-20)
-
-        #         kl_bpr = (log_q_z_prime - log_p_z_prime) * q_z_prime
-        #         kl_bpr = tf.reduce_sum(kl_bpr)
-        #         infered_batch_size = tf.shape(inputs)[0]
-        #         kl_bpr = tf.div(kl_bpr, tf.to_float(infered_batch_size))
-
-        #     if not self.config.with_BPR:
-        #         elbo_t = rc_loss_1 + rc_loss_2 + kl_tmp
-        #     else:
-        #         elbo_t = rc_loss_1 + rc_loss_2 + kl_bpr
-
-        #     # BOW_loss
-        #     if self.config.with_bow_loss:
-        #         tile_bow_logits1 = tf.tile(tf.expand_dims(self.bow_logits1, 1),
-        #                                    (1, self.config.max_utt_len - 1, 1))
-        #         print("tile_bow_logits1")
-        #         print(tile_bow_logits1)
-
-        #         print("labels_1")
-        #         print(labels_1)
-        #         bow_loss1 = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        #             logits=tile_bow_logits1, labels=labels_1) * label_mask_1
-        #         if True:
-        #             if self.weights is not None:
-        #                 weights = tf.gather(self.weights, labels_1)
-        #                 bow_loss1 = compute_weighted_loss(bow_loss1,
-        #                                                   weights=weights)
-        #         print("bow_loss1")
-        #         print(bow_loss1)
-
-        #         bow_loss1 = tf.reduce_sum(bow_loss1, reduction_indices=1)
-        #         print("bow_loss1")
-        #         print(bow_loss1)
-
-        #         tile_bow_logits2 = tf.tile(tf.expand_dims(self.bow_logits2, 1),
-        #                                    (1, self.config.max_utt_len - 1, 1))
-        #         bow_loss2 = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        #             logits=tile_bow_logits2, labels=labels_2) * label_mask_2
-        #         if True:
-        #             if self.weights is not None:
-        #                 bow_loss2 = compute_weighted_loss(bow_loss2,
-        #                                                   weights=weights)
-        #         bow_loss2 = tf.reduce_sum(bow_loss2, reduction_indices=1)
-
-        #         print("bow_loss1")
-        #         print(bow_loss1)
-        #         #sys.exit()
-        #         elbo_t = elbo_t + self.config.bow_loss_weight * (bow_loss1 +
-        #                                                          bow_loss2)
-
-        #     elbo_t = tf.expand_dims(elbo_t, 1)
-        # print("z_samples")
-        # print(z_samples)
-        # print("\n\n\n")
-
+        
         return elbo_t, logits_z_samples, next_state[
             1], p_z, self.bow_logits1, self.bow_logits2
