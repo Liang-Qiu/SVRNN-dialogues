@@ -30,20 +30,18 @@ def get_dataset():
     # convert to numeric input outputs
     train_feed = SWDADataLoader("Train", train_dial, params.max_utt_len,
                                 params.max_dialog_len)
-    test_feed = SWDADataLoader("Test", test_dial, params.max_utt_len,
-                               params.max_dialog_len)
+    valid_feed = test_feed = SWDADataLoader("Test", test_dial,
+                                            params.max_utt_len,
+                                            params.max_dialog_len)
+
     if params.with_label_loss:
         labeled_feed = SWDADataLoader("Labeled",
                                       labeled_dial,
                                       params.max_utt_len,
                                       params.max_dialog_len,
                                       labeled=True)
-    valid_feed = test_feed
-
-    if params.forward_only or params.resume:
-        log_dir = os.path.join(params.work_dir, params.test_path)
-    else:
-        log_dir = os.path.join(params.work_dir, "run" + str(int(time.time())))
+        return train_feed, valid_feed, test_feed, labeled_feed
+    return train_feed, valid_feed, test_feed
 
 
 # def train(model, train_loader, optimizer):
@@ -87,6 +85,11 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
 
     get_dataset()
+
+    if params.forward_only or params.resume:
+        log_dir = os.path.join(params.work_dir, params.test_path)
+    else:
+        log_dir = os.path.join(params.work_dir, "run" + str(int(time.time())))
 
     # n_vocab = 2000
     # model = VRNN(n_vocab)
