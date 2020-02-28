@@ -1,4 +1,4 @@
-#    Copyright (C) 2017 Tiancheng Zhao, Carnegie Mellon University
+# Copyright (C) 2017 Tiancheng Zhao, Carnegie Mellon University
 from __future__ import print_function
 from __future__ import division
 
@@ -126,6 +126,7 @@ class SWDADialogCorpus(object):
         print(self.dialog_act_vocab)
         print("%d dialog acts in train data" % len(self.dialog_act_vocab))
         """
+
     def load_word2vec(self, binary=True):
         if self.word_vec_path is None:
             return
@@ -199,7 +200,7 @@ class SWDADialogCorpus(object):
                     enc = [0] * n_state
                     enc[int(s)] = 1
                     state_this_dialog.append(enc)
-                for _ in xrange(pad_to_length - len(dialog)):  # padding
+                for _ in range(pad_to_length - len(dialog)):  # padding
                     state_this_dialog.append([0] * n_state)
                 results.append(state_this_dialog)
             return results
@@ -213,7 +214,7 @@ class SWDADialogCorpus(object):
                     # enc = [0] * n_state
                     # enc[int(s)] = 1
                     state_this_dialog.append(int(s))
-                for _ in xrange(pad_to_length - len(dialog)):  # padding
+                for _ in range(pad_to_length - len(dialog)):  # padding
                     state_this_dialog.append(0)
                 results.append(state_this_dialog[:pad_to_length])
             return results
