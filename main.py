@@ -20,9 +20,9 @@ def get_dataset():
     with open(params.api_dir, "rb") as fh:
         api = pkl.load(fh, encoding='latin1')
     dial_corpus = api.get_dialog_corpus()
-    if params.with_label_loss:
-        labeled_dial_labels = api.get_state_corpus(
-            params.max_dialog_len)['labeled']
+    # if params.with_label_loss:
+    #     labeled_dial_labels = api.get_state_corpus(
+    #         params.max_dialog_len)['labeled']
 
     train_dial, labeled_dial, test_dial = dial_corpus.get(
         "train"), dial_corpus.get("labeled"), dial_corpus.get("test")
@@ -34,13 +34,13 @@ def get_dataset():
                                             params.max_utt_len,
                                             params.max_dialog_len)
 
-    if params.with_label_loss:
-        labeled_feed = SWDADataLoader("Labeled",
-                                      labeled_dial,
-                                      params.max_utt_len,
-                                      params.max_dialog_len,
-                                      labeled=True)
-        return train_feed, valid_feed, test_feed, labeled_feed
+    # if params.with_label_loss:
+    #     labeled_feed = SWDADataLoader("Labeled",
+    #                                   labeled_dial,
+    #                                   params.max_utt_len,
+    #                                   params.max_dialog_len,
+    #                                   labeled=True)
+    #     return train_feed, valid_feed, test_feed, labeled_feed
     return train_feed, valid_feed, test_feed
 
 

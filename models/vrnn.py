@@ -10,6 +10,9 @@ import numpy as np
 import torch
 from torch import nn
 
+import sys
+sys.path.append("..")
+import params
 # from models.VAE_cell import VAECell
 # from models.dynamic_VAE import dynamic_vae
 
@@ -23,254 +26,251 @@ class VRNN(nn.Module):
         self.n_vocab = n_vocab
 
         # neural layers
-        self.embedding = nn.Embedding()
+        self.embedding = nn.Embedding(self.n_vocab, params.embed_size)
 
-    # def forward(usr_input_sent):
-    #         W_embedding = self.W_embedding * embedding_mask
-    #         usr_input_embedding = self.embedding(
-    #             W_embedding, usr_input_sent)  # (8000, 300)
-    #         usr_input_embedding = tf.reshape(
-    #             usr_input_embedding,
-    #             [-1, self.max_utt_len, self.config.embed_size
-    #              ])  #(160, 50, 300)
-    #         sys_input_embedding = self.embedding(
-    #             W_embedding, tf.reshape(self.sys_input_sent,
+    def forward(self, usr_input_sent, sys_input_sent, dialog_length_mask,
+                usr_input_mask, sys_input_mask):
+        # sent_embedding
+        usr_input_embedding = self.embedding(
+            usr_input_sent)  # (16, 10, 50, 300)
+        usr_input_embedding.view([-1, params.max_utt_len,
+                                  params.embed_size])  #(160, 50, 300)
+
+        sys_input_embedding = self.embedding(
+            sys_input_sent)  # (16, 10, 50, 300)
+        sys_input_embedding.view([-1, params.max_utt_len,
+                                  params.embed_size])  #(160, 50, 300)
+
+    #     if self.config.with_label_loss:
+    #         labeled_usr_input_embedding = tf.nn.embedding_lookup(
+    #             W_embedding, tf.reshape(self.labeled_usr_input_sent,
     #                                     [-1]))  # (8000, 300)
-    #         sys_input_embedding = tf.reshape(
-    #             sys_input_embedding,
+    #         labeled_usr_input_embedding = tf.reshape(
+    #             labeled_usr_input_embedding,
     #             [-1, self.max_utt_len, self.config.embed_size
-    #              ])  #(160, 50, 300)
+    #              ])  # (160, 50, 300)
+    #         labeled_sys_input_embedding = tf.nn.embedding_lookup(
+    #             W_embedding, tf.reshape(self.labeled_sys_input_sent,
+    #                                     [-1]))  # (8000, 300)
+    #         labeled_sys_input_embedding = tf.reshape(
+    #             labeled_sys_input_embedding,
+    #             [-1, self.max_utt_len, self.config.embed_size
+    #              ])  # (160, 50, 300)
 
-    #         if self.config.with_label_loss:
-    #             labeled_usr_input_embedding = tf.nn.embedding_lookup(
-    #                 W_embedding, tf.reshape(self.labeled_usr_input_sent,
-    #                                         [-1]))  # (8000, 300)
-    #             labeled_usr_input_embedding = tf.reshape(
-    #                 labeled_usr_input_embedding,
-    #                 [-1, self.max_utt_len, self.config.embed_size
-    #                  ])  # (160, 50, 300)
-    #             labeled_sys_input_embedding = tf.nn.embedding_lookup(
-    #                 W_embedding, tf.reshape(self.labeled_sys_input_sent,
-    #                                         [-1]))  # (8000, 300)
-    #             labeled_sys_input_embedding = tf.reshape(
-    #                 labeled_sys_input_embedding,
-    #                 [-1, self.max_utt_len, self.config.embed_size
-    #                  ])  # (160, 50, 300)
+    # with variable_scope.variable_scope("sent_level"):
+    #     self.encoding_cell = self.get_rnncell(self.cell_type,
+    #                                           self.encoding_cell_size,
+    #                                           self.keep_prob,
+    #                                           num_layer=self.num_layer)
+    #     usr_input_embedding, usr_sent_size = get_rnn_encode(
+    #         usr_input_embedding,
+    #         self.encoding_cell,
+    #         scope="sent_embedding_rnn")
+    #     sys_input_embedding, sys_sent_size = get_rnn_encode(
+    #         sys_input_embedding,
+    #         self.encoding_cell,
+    #         scope="sent_embedding_rnn",
+    #         reuse=True)
 
-    #     with variable_scope.variable_scope("sent_level"):
-    #         self.encoding_cell = self.get_rnncell(self.cell_type,
-    #                                               self.encoding_cell_size,
-    #                                               self.keep_prob,
-    #                                               num_layer=self.num_layer)
-    #         usr_input_embedding, usr_sent_size = get_rnn_encode(
-    #             usr_input_embedding,
+    #     usr_input_embedding = tf.reshape(
+    #         usr_input_embedding[1], [-1, max_dialog_len, usr_sent_size[0]])
+    #     sys_input_embedding = tf.reshape(
+    #         sys_input_embedding[1], [-1, max_dialog_len, sys_sent_size[0]])
+
+    #     if self.config.with_label_loss:
+    #         labeled_usr_input_embedding, labeled_usr_sent_size = get_rnn_encode(
+    #             labeled_usr_input_embedding,
     #             self.encoding_cell,
-    #             scope="sent_embedding_rnn")
-    #         sys_input_embedding, sys_sent_size = get_rnn_encode(
-    #             sys_input_embedding,
+    #             scope="sent_embedding_rnn",
+    #             reuse=True)
+    #         labeled_sys_input_embedding, labeled_sys_sent_size = get_rnn_encode(
+    #             labeled_sys_input_embedding,
     #             self.encoding_cell,
     #             scope="sent_embedding_rnn",
     #             reuse=True)
 
-    #         usr_input_embedding = tf.reshape(
-    #             usr_input_embedding[1], [-1, max_dialog_len, usr_sent_size[0]])
-    #         sys_input_embedding = tf.reshape(
-    #             sys_input_embedding[1], [-1, max_dialog_len, sys_sent_size[0]])
+    #         labeled_usr_input_embedding = tf.reshape(
+    #             labeled_usr_input_embedding[1],
+    #             [-1, max_dialog_len, labeled_usr_sent_size[0]])
+    #         labeled_sys_input_embedding = tf.reshape(
+    #             labeled_sys_input_embedding[1],
+    #             [-1, max_dialog_len, labeled_sys_sent_size[0]])
 
+    #     if config.keep_prob < 1.0:
+    #         usr_input_embedding = tf.nn.dropout(usr_input_embedding,
+    #                                             config.keep_prob)
+    #         sys_input_embedding = tf.nn.dropout(sys_input_embedding,
+    #                                             config.keep_prob)
     #         if self.config.with_label_loss:
-    #             labeled_usr_input_embedding, labeled_usr_sent_size = get_rnn_encode(
-    #                 labeled_usr_input_embedding,
-    #                 self.encoding_cell,
-    #                 scope="sent_embedding_rnn",
-    #                 reuse=True)
-    #             labeled_sys_input_embedding, labeled_sys_sent_size = get_rnn_encode(
-    #                 labeled_sys_input_embedding,
-    #                 self.encoding_cell,
-    #                 scope="sent_embedding_rnn",
-    #                 reuse=True)
+    #             labeled_usr_input_embedding = tf.nn.dropout(
+    #                 labeled_usr_input_embedding, config.keep_prob)
+    #             labeled_sys_input_embedding = tf.nn.dropout(
+    #                 labeled_sys_input_embedding, config.keep_prob)
 
-    #             labeled_usr_input_embedding = tf.reshape(
-    #                 labeled_usr_input_embedding[1],
-    #                 [-1, max_dialog_len, labeled_usr_sent_size[0]])
-    #             labeled_sys_input_embedding = tf.reshape(
-    #                 labeled_sys_input_embedding[1],
-    #                 [-1, max_dialog_len, labeled_sys_sent_size[0]])
-
-    #         if config.keep_prob < 1.0:
-    #             usr_input_embedding = tf.nn.dropout(usr_input_embedding,
-    #                                                 config.keep_prob)
-    #             sys_input_embedding = tf.nn.dropout(sys_input_embedding,
-    #                                                 config.keep_prob)
-    #             if self.config.with_label_loss:
-    #                 labeled_usr_input_embedding = tf.nn.dropout(
-    #                     labeled_usr_input_embedding, config.keep_prob)
-    #                 labeled_sys_input_embedding = tf.nn.dropout(
-    #                     labeled_sys_input_embedding, config.keep_prob)
-
-    #         joint_embedding = tf.concat(
-    #             [usr_input_embedding, sys_input_embedding], 2,
-    #             "joint_embedding"
+    #     joint_embedding = tf.concat(
+    #         [usr_input_embedding, sys_input_embedding], 2,
+    #         "joint_embedding"
+    #     )  # (batch, dialog_len, embedding_size*2) (16, 10, 400)
+    #     if self.config.with_label_loss:
+    #         labeled_joint_embedding = tf.concat(
+    #             [labeled_usr_input_embedding, labeled_sys_input_embedding],
+    #             2, "labeled_joint_embedding"
     #         )  # (batch, dialog_len, embedding_size*2) (16, 10, 400)
-    #         if self.config.with_label_loss:
-    #             labeled_joint_embedding = tf.concat(
-    #                 [labeled_usr_input_embedding, labeled_sys_input_embedding],
-    #                 2, "labeled_joint_embedding"
-    #             )  # (batch, dialog_len, embedding_size*2) (16, 10, 400)
 
-    #     with variable_scope.variable_scope("state_level"):
-    #         usr_state_vocab_matrix = tf.get_variable(
-    #             "usr_state_vocab_distribution", [self.n_state, self.n_vocab],
-    #             dtype=tf.float32,
-    #             initializer=tf.random_uniform_initializer())
-    #         sys_state_vocab_matrix = tf.get_variable(
-    #             "sys_state_vocab_distribution", [self.n_state, self.n_vocab],
-    #             dtype=tf.float32,
-    #             initializer=tf.random_uniform_initializer())
-    #         self.usr_state_vocab_matrix = tf.nn.softmax(
-    #             usr_state_vocab_matrix, -1)
-    #         self.sys_state_vocab_matrix = tf.nn.softmax(
-    #             sys_state_vocab_matrix, -1)
+    # with variable_scope.variable_scope("state_level"):
+    #     usr_state_vocab_matrix = tf.get_variable(
+    #         "usr_state_vocab_distribution", [self.n_state, self.n_vocab],
+    #         dtype=tf.float32,
+    #         initializer=tf.random_uniform_initializer())
+    #     sys_state_vocab_matrix = tf.get_variable(
+    #         "sys_state_vocab_distribution", [self.n_state, self.n_vocab],
+    #         dtype=tf.float32,
+    #         initializer=tf.random_uniform_initializer())
+    #     self.usr_state_vocab_matrix = tf.nn.softmax(
+    #         usr_state_vocab_matrix, -1)
+    #     self.sys_state_vocab_matrix = tf.nn.softmax(
+    #         sys_state_vocab_matrix, -1)
 
-    #         self.state_cell = self.get_rnncell(self.cell_type,
-    #                                            self.encoding_cell_size,
-    #                                            self.keep_prob,
-    #                                            num_layer=self.num_layer,
-    #                                            activation=tf.nn.tanh)
-    #         self.VAE_cell = VAECell(num_units=300,
-    #                                 state_cell=self.state_cell,
-    #                                 num_zt=self.config.n_state,
-    #                                 vocab_size=self.n_vocab,
-    #                                 max_utt_len=self.max_utt_len,
-    #                                 config=config,
-    #                                 use_peepholes=False,
-    #                                 cell_clip=None,
-    #                                 initializer=None,
-    #                                 num_proj=None,
-    #                                 proj_clip=None,
-    #                                 num_unit_shards=None,
-    #                                 num_proj_shards=None,
-    #                                 forget_bias=1.0,
-    #                                 state_is_tuple=True,
-    #                                 activation=None,
-    #                                 reuse=None,
-    #                                 name=None)
-    #         dec_input_embedding_usr = tf.nn.embedding_lookup(
-    #             W_embedding, self.usr_input_sent)  # (16, 10, 50, 300)
-    #         dec_input_embedding_sys = tf.nn.embedding_lookup(
-    #             W_embedding, self.sys_input_sent)  # (16, 10, 50, 300)
-    #         dec_input_embedding = [
-    #             dec_input_embedding_usr, dec_input_embedding_sys
+    #     self.state_cell = self.get_rnncell(self.cell_type,
+    #                                        self.encoding_cell_size,
+    #                                        self.keep_prob,
+    #                                        num_layer=self.num_layer,
+    #                                        activation=tf.nn.tanh)
+    #     self.VAE_cell = VAECell(num_units=300,
+    #                             state_cell=self.state_cell,
+    #                             num_zt=self.config.n_state,
+    #                             vocab_size=self.n_vocab,
+    #                             max_utt_len=self.max_utt_len,
+    #                             config=config,
+    #                             use_peepholes=False,
+    #                             cell_clip=None,
+    #                             initializer=None,
+    #                             num_proj=None,
+    #                             proj_clip=None,
+    #                             num_unit_shards=None,
+    #                             num_proj_shards=None,
+    #                             forget_bias=1.0,
+    #                             state_is_tuple=True,
+    #                             activation=None,
+    #                             reuse=None,
+    #                             name=None)
+    #     dec_input_embedding_usr = tf.nn.embedding_lookup(
+    #         W_embedding, self.usr_input_sent)  # (16, 10, 50, 300)
+    #     dec_input_embedding_sys = tf.nn.embedding_lookup(
+    #         W_embedding, self.sys_input_sent)  # (16, 10, 50, 300)
+    #     dec_input_embedding = [
+    #         dec_input_embedding_usr, dec_input_embedding_sys
+    #     ]
+
+    #     dec_seq_lens_usr = tf.reduce_sum(tf.sign(self.usr_full_mask), 2)
+    #     dec_seq_lens_sys = tf.reduce_sum(tf.sign(self.sys_full_mask), 2)
+    #     dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
+
+    #     output_tokens_usr = self.usr_input_sent
+    #     output_tokens_sys = self.sys_input_sent
+    #     output_tokens = [output_tokens_usr, output_tokens_sys]
+
+    #     if self.config.with_label_loss:
+    #         labeled_dec_input_embedding_usr = tf.nn.embedding_lookup(
+    #             W_embedding,
+    #             self.labeled_usr_input_sent)  # (16, 10, 50, 300)
+    #         labeled_dec_input_embedding_sys = tf.nn.embedding_lookup(
+    #             W_embedding,
+    #             self.labeled_sys_input_sent)  # (16, 10, 50, 300)
+    #         labeled_dec_input_embedding = [
+    #             labeled_dec_input_embedding_usr,
+    #             labeled_dec_input_embedding_sys
     #         ]
 
-    #         dec_seq_lens_usr = tf.reduce_sum(tf.sign(self.usr_full_mask), 2)
-    #         dec_seq_lens_sys = tf.reduce_sum(tf.sign(self.sys_full_mask), 2)
-    #         dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
+    #         labeled_dec_seq_lens_usr = tf.reduce_sum(
+    #             tf.sign(self.labeled_usr_full_mask), 2)
+    #         labeled_dec_seq_lens_sys = tf.reduce_sum(
+    #             tf.sign(self.labeled_sys_full_mask), 2)
+    #         labeled_dec_seq_lens = [
+    #             labeled_dec_seq_lens_usr, labeled_dec_seq_lens_sys
+    #         ]
 
-    #         output_tokens_usr = self.usr_input_sent
-    #         output_tokens_sys = self.sys_input_sent
-    #         output_tokens = [output_tokens_usr, output_tokens_sys]
+    #         labeled_output_tokens_usr = self.labeled_usr_input_sent
+    #         labeled_output_tokens_sys = self.labeled_sys_input_sent
+    #         labeled_output_tokens = [
+    #             labeled_output_tokens_usr, labeled_output_tokens_sys
+    #         ]
+
+    #     with variable_scope.variable_scope(
+    #             "dynamic_VAE_loss") as dynamic_vae_scope:
+    #         self.initial_prev_z = tf.placeholder(
+    #             tf.float32, (None, self.config.n_state), 'initial_prev_z')
+    #         losses, z_ts, p_ts, bow_logits1, bow_logits2 = dynamic_vae(
+    #             self.VAE_cell,
+    #             joint_embedding,
+    #             dec_input_embedding,
+    #             dec_seq_lens,
+    #             output_tokens,
+    #             z_t_size=self.config.n_state,
+    #             sequence_length=self.dialog_length_mask,
+    #             initial_state=None,
+    #             dtype=tf.float32,
+    #             parallel_iterations=None,
+    #             swap_memory=False,
+    #             time_major=False,
+    #             scope=None,
+    #             initial_prev_z=self.initial_prev_z)
 
     #         if self.config.with_label_loss:
-    #             labeled_dec_input_embedding_usr = tf.nn.embedding_lookup(
-    #                 W_embedding,
-    #                 self.labeled_usr_input_sent)  # (16, 10, 50, 300)
-    #             labeled_dec_input_embedding_sys = tf.nn.embedding_lookup(
-    #                 W_embedding,
-    #                 self.labeled_sys_input_sent)  # (16, 10, 50, 300)
-    #             labeled_dec_input_embedding = [
-    #                 labeled_dec_input_embedding_usr,
-    #                 labeled_dec_input_embedding_sys
-    #             ]
-
-    #             labeled_dec_seq_lens_usr = tf.reduce_sum(
-    #                 tf.sign(self.labeled_usr_full_mask), 2)
-    #             labeled_dec_seq_lens_sys = tf.reduce_sum(
-    #                 tf.sign(self.labeled_sys_full_mask), 2)
-    #             labeled_dec_seq_lens = [
-    #                 labeled_dec_seq_lens_usr, labeled_dec_seq_lens_sys
-    #             ]
-
-    #             labeled_output_tokens_usr = self.labeled_usr_input_sent
-    #             labeled_output_tokens_sys = self.labeled_sys_input_sent
-    #             labeled_output_tokens = [
-    #                 labeled_output_tokens_usr, labeled_output_tokens_sys
-    #             ]
-
-    #         with variable_scope.variable_scope(
-    #                 "dynamic_VAE_loss") as dynamic_vae_scope:
-    #             self.initial_prev_z = tf.placeholder(
-    #                 tf.float32, (None, self.config.n_state), 'initial_prev_z')
-    #             losses, z_ts, p_ts, bow_logits1, bow_logits2 = dynamic_vae(
+    #             dynamic_vae_scope.reuse_variables()
+    #             labeled_losses, labeled_z_ts, labeled_pts, labeled_bow_logits1, labeled_bow_logits2 = dynamic_vae(
     #                 self.VAE_cell,
-    #                 joint_embedding,
-    #                 dec_input_embedding,
-    #                 dec_seq_lens,
-    #                 output_tokens,
+    #                 labeled_joint_embedding,
+    #                 labeled_dec_input_embedding,
+    #                 labeled_dec_seq_lens,
+    #                 labeled_output_tokens,
     #                 z_t_size=self.config.n_state,
-    #                 sequence_length=self.dialog_length_mask,
+    #                 sequence_length=self.labeled_dialog_length_mask,
     #                 initial_state=None,
     #                 dtype=tf.float32,
     #                 parallel_iterations=None,
     #                 swap_memory=False,
     #                 time_major=False,
-    #                 scope=None,
-    #                 initial_prev_z=self.initial_prev_z)
+    #                 scope=None)
+    #             self.labeled_z_ts = labeled_z_ts
+    #             self.labeled_z_ts_mask = tf.to_float(
+    #                 tf.sign(tf.reduce_sum(self.labeled_usr_full_mask, 2)))
 
-    #             if self.config.with_label_loss:
-    #                 dynamic_vae_scope.reuse_variables()
-    #                 labeled_losses, labeled_z_ts, labeled_pts, labeled_bow_logits1, labeled_bow_logits2 = dynamic_vae(
-    #                     self.VAE_cell,
-    #                     labeled_joint_embedding,
-    #                     labeled_dec_input_embedding,
-    #                     labeled_dec_seq_lens,
-    #                     labeled_output_tokens,
-    #                     z_t_size=self.config.n_state,
-    #                     sequence_length=self.labeled_dialog_length_mask,
-    #                     initial_state=None,
-    #                     dtype=tf.float32,
-    #                     parallel_iterations=None,
-    #                     swap_memory=False,
-    #                     time_major=False,
-    #                     scope=None)
-    #                 self.labeled_z_ts = labeled_z_ts
-    #                 self.labeled_z_ts_mask = tf.to_float(
-    #                     tf.sign(tf.reduce_sum(self.labeled_usr_full_mask, 2)))
+    #             labeled_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #                 logits=self.labeled_z_ts, labels=self.labeled_labels)
+    #             labeled_loss = tf.reduce_sum(labeled_loss *
+    #                                          self.labeled_z_ts_mask)
 
-    #                 labeled_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #                     logits=self.labeled_z_ts, labels=self.labeled_labels)
-    #                 labeled_loss = tf.reduce_sum(labeled_loss *
-    #                                              self.labeled_z_ts_mask)
+    #             labeled_loss = labeled_loss / tf.to_float(
+    #                 tf.reduce_sum(self.labeled_usr_full_mask) +
+    #                 tf.reduce_sum(self.labeled_sys_full_mask))
+    #             self.labeled_loss = tf.identity(labeled_loss,
+    #                                             name="labeled_loss")
 
-    #                 labeled_loss = labeled_loss / tf.to_float(
-    #                     tf.reduce_sum(self.labeled_usr_full_mask) +
-    #                     tf.reduce_sum(self.labeled_sys_full_mask))
-    #                 self.labeled_loss = tf.identity(labeled_loss,
-    #                                                 name="labeled_loss")
+    #     z_ts = tf.nn.softmax(z_ts)  # (16, 10, 12)
+    #     z_ts_mask = tf.to_float(
+    #         tf.sign(tf.reduce_sum(self.usr_full_mask, 2)))  # (16, 10)
+    #     z_ts_mask = tf.expand_dims(z_ts_mask, 2)  # (16, 10, 1)
+    #     self.z_ts = z_ts * z_ts_mask
+    #     self.p_ts = p_ts
+    #     self.bow_logits1 = bow_logits1
+    #     self.bow_logits2 = bow_logits2
+    #     loss_avg = tf.reduce_sum(losses) / tf.to_float(
+    #         tf.reduce_sum(self.usr_full_mask) +
+    #         tf.reduce_sum(self.sys_full_mask))
 
-    #         z_ts = tf.nn.softmax(z_ts)  # (16, 10, 12)
-    #         z_ts_mask = tf.to_float(
-    #             tf.sign(tf.reduce_sum(self.usr_full_mask, 2)))  # (16, 10)
-    #         z_ts_mask = tf.expand_dims(z_ts_mask, 2)  # (16, 10, 1)
-    #         self.z_ts = z_ts * z_ts_mask
-    #         self.p_ts = p_ts
-    #         self.bow_logits1 = bow_logits1
-    #         self.bow_logits2 = bow_logits2
-    #         loss_avg = tf.reduce_sum(losses) / tf.to_float(
-    #             tf.reduce_sum(self.usr_full_mask) +
-    #             tf.reduce_sum(self.sys_full_mask))
+    #     if self.config.with_label_loss:
+    #         loss_avg = loss_avg + self.labeled_loss
 
-    #         if self.config.with_label_loss:
-    #             loss_avg = loss_avg + self.labeled_loss
+    #     loss_avg = tf.identity(loss_avg, name="loss_average")
 
-    #         loss_avg = tf.identity(loss_avg, name="loss_average")
+    #     self.basic_loss = loss_avg
+    #     tf.summary.scalar("basic_loss", self.basic_loss)
 
-    #         self.basic_loss = loss_avg
-    #         tf.summary.scalar("basic_loss", self.basic_loss)
+    #     self.summary_op = tf.summary.merge_all()
 
-    #         self.summary_op = tf.summary.merge_all()
-
-    #     self.saver = tf.train.Saver(tf.global_variables(),
-    #                                 write_version=tf.train.SaverDef.V2)
+    # self.saver = tf.train.Saver(tf.global_variables(),
+    #                             write_version=tf.train.SaverDef.V2)
 
     # @staticmethod
     # def get_rnncell(cell_type,
