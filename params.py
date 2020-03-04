@@ -17,6 +17,7 @@ rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.p
 temperature = 0.5  # temperature for gumbel softmax
 use_cuda = False
 seed = 233
+max_vocab_cnt = 10000
 
 # state variable
 n_state = 10  # the number of states

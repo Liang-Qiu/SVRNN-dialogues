@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import sys
 sys.path.append("..")
 import params
-# from models.VAE_cell import VAECell
+from .vae_cell import VAECell
 # from models.dynamic_VAE import dynamic_vae
 
 
@@ -22,13 +22,11 @@ class VRNN(nn.Module):
     """
     VRNN with gumbel-softmax
     """
-    def __init__(self, n_vocab):
+    def __init__(self):
         super(VRNN, self).__init__()
-        # hyper parameters
-        self.n_vocab = n_vocab
 
         # neural layers
-        self.embedding = nn.Embedding(self.n_vocab, params.embed_size)
+        self.embedding = nn.Embedding(params.n_vocab, params.embed_size)
 
         if params.cell_type == "gru":
             self.sent_rnn = nn.GRU(params.embed_size,
@@ -52,6 +50,22 @@ class VRNN(nn.Module):
                                      params.num_layer,
                                      batch_first=True,
                                      dropout=params.dropout)
+
+        self.vae_cell = VAECell(
+            num_units=300,
+            # num_zt=self.config.n_state,
+            # vocab_size=self.n_vocab,
+            # max_utt_len=self.max_utt_len,
+            # config=config,
+            use_peepholes=False,
+            cell_clip=None,
+            initializer=None,
+            num_proj=None,
+            proj_clip=None,
+            num_unit_shards=None,
+            num_proj_shards=None,
+            forget_bias=1.0,
+            state_is_tuple=True)
 
     def forward(self, usr_input_sent, sys_input_sent, dialog_length_mask,
                 usr_input_mask, sys_input_mask):
@@ -90,37 +104,19 @@ class VRNN(nn.Module):
             dim=2)  # (batch, dialog_len, embedding_size*2) (16, 10, 800)
 
         ########################### state level ############################
-        # self.VAE_cell = VAECell(num_units=300,
-        #                         state_cell=self.state_cell,
-        #                         num_zt=self.config.n_state,
-        #                         vocab_size=self.n_vocab,
-        #                         max_utt_len=self.max_utt_len,
-        #                         config=config,
-        #                         use_peepholes=False,
-        #                         cell_clip=None,
-        #                         initializer=None,
-        #                         num_proj=None,
-        #                         proj_clip=None,
-        #                         num_unit_shards=None,
-        #                         num_proj_shards=None,
-        #                         forget_bias=1.0,
-        #                         state_is_tuple=True,
-        #                         activation=None,
-        #                         reuse=None,
-        #                         name=None)
-        # dec_input_embedding_usr = self.embedding(
-        #     usr_input_sent)  # (16, 10, 50, 300)
-        # dec_input_embedding_sys = self.embedding(
-        #     sys_input_sent)  # (16, 10, 50, 300)
-        # dec_input_embedding = [
-        #     dec_input_embedding_usr, dec_input_embedding_sys
-        # ]
+        dec_input_embedding_usr = self.embedding(
+            usr_input_sent)  # (16, 10, 50, 300)
+        dec_input_embedding_sys = self.embedding(
+            sys_input_sent)  # (16, 10, 50, 300)
+        dec_input_embedding = [
+            dec_input_embedding_usr, dec_input_embedding_sys
+        ]
 
-        # dec_seq_lens_usr = torch.sum(torch.sign(self.usr_full_mask), dim=2)
-        # dec_seq_lens_sys = torch.sum(torch.sign(self.sys_full_mask), dim=2)
-        # dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
+        dec_seq_lens_usr = torch.sum(torch.sign(self.usr_full_mask), dim=2)
+        dec_seq_lens_sys = torch.sum(torch.sign(self.sys_full_mask), dim=2)
+        dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
 
-        # output_tokens = [usr_input_sent, sys_input_sent]
+        output_tokens = [usr_input_sent, sys_input_sent]
 
     #     self.initial_prev_z = tf.placeholder(tf.float32,
     #                                          (None, self.config.n_state),

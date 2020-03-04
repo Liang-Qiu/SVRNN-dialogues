@@ -1,7 +1,7 @@
 from __future__ import division
 
 import torch
-import torch.nn.function as F
+import torch.nn.functional as F
 
 
 # thanks for the implementation at https://github.com/dev4488/VAE_gumble_softmax/blob/master/vae_gumbel_softmax.py

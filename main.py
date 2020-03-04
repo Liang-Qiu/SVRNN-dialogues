@@ -98,8 +98,7 @@ def main():
     else:
         log_dir = os.path.join(params.work_dir, "run" + str(int(time.time())))
 
-    n_vocab = 2000
-    model = VRNN(n_vocab)
+    model = VRNN()
 
     optimizer = optim.Adam(model.parameters(), lr=params.init_lr)
     if train_loader.num_batch is None or train_loader.ptr >= train_loader.num_batch:

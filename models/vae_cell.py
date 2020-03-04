@@ -1,23 +1,19 @@
 """Torch version of https://github.com/wyshi/Unsupervised-Structure-Learning
 """
+import sys
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sequential import MLP
-from ..utils import gumbel_softmax
+
+from .sequential import MLP
+sys.path.append("..")
+from utils.sample import gumbel_softmax
+import params
 
 
 class VAECell(object):
-    """
-    """
     def __init__(self,
-                 num_units,
-                 state_cell,
-                 vocab_size,
-                 max_utt_len,
-                 config,
-                 num_zt=10,
                  use_peepholes=False,
                  cell_clip=None,
                  initializer=None,
@@ -26,35 +22,41 @@ class VAECell(object):
                  num_unit_shards=None,
                  num_proj_shards=None,
                  forget_bias=1.0,
-                 state_is_tuple=True,
-                 activation=None,
-                 reuse=None,
-                 name=None,
-                 dtype=None):
+                 state_is_tuple=True):
 
         self._state_is_tuple = state_is_tuple
-        self.num_zt = num_zt
+        self.num_zt = params.n_state
         # temperature of gumbel_softmax
         self.tau = torch.tensor([5.0], requires_grad=True)
-        self.vocab_size = vocab_size
-        self.max_utt_len = max_utt_len
-        self.config = config
-        if self.config.word_weights:
-            self.weights = torch.tensor(self.config.word_weights,
+        self.vocab_size = params.max_vocab_cnt
+        self.max_utt_len = params.max_utt_len
+        if params.word_weights:
+            self.weights = torch.tensor(params.word_weights,
                                         requires_grad=False)
         else:
-            self.weights = self.config.word_weights
-        self.enc_mlp = MLP(sent_encoding_size * 2 + state_cell_size,
+            self.weights = params.word_weights
+        self.enc_mlp = MLP(params.encoding_cell_size * 2 + params.n_state,
                            [400, 200],
-                           dropout_rate=self.config.keep_prob)
+                           dropout_rate=params.dropout)
         self.enc_linear = nn.Linear(200, self.num_zt)
         self.dec_mlp = MLP(self.num_zt, [200, 200],
-                           dropout_rate=self.config.keep_prob)
+                           dropout_rate=params.dropout)
+        self.dec_rnn_1 = nn.LSTMCell(200 + self.num_zt)
+        self.dec_linear_1 = nn.Linear(200 + self.num_zt, self.vocab_size)
+        self.dec_rnn_2 = nn.LSTMCell(2 * (200 + self.num_zt))
+        self.dec_linear_2 = nn.Linear(2 * (200 + self.num_zt), self.vocab_size)
 
-    def encode(self, inputs):
+    def encode(self,
+               inputs,
+               state,
+               dec_input_embedding,
+               dec_seq_lens,
+               output_tokens,
+               forward=False,
+               prev_z_t=None):
         if self._state_is_tuple:
             (c_prev, h_prev) = state
-        if self.config.with_direct_transition:
+        if params.with_direct_transition:
             assert prev_z_t is not None
 
         print(type(dec_input_embedding[0]))
@@ -79,10 +81,6 @@ class VAECell(object):
             dec_input_1, dec_input_1)
 
         if not forward:
-            selected_attribute_embedding = None
-            loop_func_1 = decoder_fn_lib.context_decoder_fn_train(
-                dec_init_state_1, selected_attribute_embedding)
-
             dec_input_embedding[0] = dec_input_embedding[0][:, 0:-1, :]
             dec_input_embedding[1] = dec_input_embedding[1][:, 0:-1, :]
             dec_outs_1, final_state_1 = dynamic_rnn_decoder(
@@ -184,6 +182,5 @@ class VAECell(object):
                                     'recNet_inputs')  # [batch, 600]
             next_state = self.state_cell(inputs=recur_input, state=state)
 
-        
         return elbo_t, logits_z_samples, next_state[
             1], p_z, self.bow_logits1, self.bow_logits2
