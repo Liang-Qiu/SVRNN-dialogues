@@ -1,8 +1,10 @@
 # Copyright (C) 2017 Tiancheng Zhao, Carnegie Mellon University
+# Copyright (C) 2020 Liang Qiu, UCLA
 from __future__ import print_function
 from __future__ import division
 
 import numpy as np
+import torch
 
 
 # Data feed
@@ -167,5 +169,5 @@ class SWDADataLoader(LongDataLoader):
 
         # initial_prev_zt = np.ones()
 
-        return np.array(usr_input_sent), np.array(sys_input_sent), np.array(dialog_lens), \
-               np.array(usr_full_mask), np.array(sys_full_mask)
+        return torch.tensor(usr_input_sent), torch.tensor(sys_input_sent), torch.tensor(dialog_lens), \
+               torch.tensor(usr_full_mask), torch.tensor(sys_full_mask)

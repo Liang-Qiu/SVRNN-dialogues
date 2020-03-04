@@ -44,15 +44,22 @@ def get_dataset():
     return train_feed, valid_feed, test_feed
 
 
-# def train(model, train_loader, optimizer):
-#     model.train()
-#     loss = 0
+def train(model, train_loader, optimizer):
+    while True:
+        batch = train_loader.next_batch()
+        if batch is None:
+            break
+        model(*batch)
+        print("training")
+    # model.train()
+    # loss = 0
 
-#     for batch_idx, (data, _) in enumerate(train_loader):
-#         optimizer.zero_grad()
-#         _, _ = model(data)
-#         loss = loss_function()
-#         loss.backward()
+    # for batch_idx, (data, _) in enumerate(train_loader):
+    #     optimizer.zero_grad()
+    #     _, _ = model(data)
+    #     loss = loss_function()
+    #     loss.backward()
+
 
 #         train_loss += loss.data[0]
 #         optimizer.step()
@@ -84,18 +91,21 @@ def main():
     use_cuda = params.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    get_dataset()
+    train_loader, valid_loader, test_loader = get_dataset()
 
     if params.forward_only or params.resume:
         log_dir = os.path.join(params.work_dir, params.test_path)
     else:
         log_dir = os.path.join(params.work_dir, "run" + str(int(time.time())))
 
-    # n_vocab = 2000
-    # model = VRNN(n_vocab)
-    # optimizer = optim.Adam()
-    # for epoch in range(1, params.epochs + 1):
-    #     train(model, train_loader, optimizer)
+    n_vocab = 2000
+    model = VRNN(n_vocab)
+
+    optimizer = optim.Adam(model.parameters(), lr=params.init_lr)
+    if train_loader.num_batch is None or train_loader.ptr >= train_loader.num_batch:
+        train_loader.epoch_init(params.batch_size, shuffle=True)
+    for epoch in range(1, params.max_epoch + 1):
+        train(model, train_loader, optimizer)
 
 
 if __name__ == "__main__":
