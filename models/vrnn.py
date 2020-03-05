@@ -34,22 +34,12 @@ class VRNN(nn.Module):
                                    params.num_layer,
                                    batch_first=True,
                                    dropout=params.dropout)
-            self.state_rnn = nn.GRU(params.embed_size,
-                                    params.encoding_cell_size,
-                                    params.num_layer,
-                                    batch_first=True,
-                                    dropout=params.dropout)
         else:
             self.sent_rnn = nn.LSTM(params.embed_size,
                                     params.encoding_cell_size,
                                     params.num_layer,
                                     batch_first=True,
                                     dropout=params.dropout)
-            self.state_rnn = nn.LSTM(params.embed_size,
-                                     params.encoding_cell_size,
-                                     params.num_layer,
-                                     batch_first=True,
-                                     dropout=params.dropout)
 
         self.vae_cell = VAECell(
             num_units=300,
