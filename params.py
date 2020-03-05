@@ -46,7 +46,7 @@ early_stop = True
 max_epoch = 60  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
-with_bow_loss = True
+with_BOW = True
 bow_loss_weight = 0.4  # weight of the bow_loss
 n_epoch = 10
 with_label_loss = False  # semi-supervised or not

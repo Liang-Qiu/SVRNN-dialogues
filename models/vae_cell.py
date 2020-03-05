@@ -71,9 +71,10 @@ class VAECell(object):
 
         net1 = self.enc_mlp(enc_inputs)
         logits_z = self.enc_fc(net1)
+        q_z = F.softmax(logits_z)
         log_q_z = F.log_softmax(logits_z)
 
-        return logits_z, log_q_z
+        return logits_z, q_z, log_q_z
 
     def decode(self, z_samples, h_prev, dec_input_embedding, forward=False):
         net2 = self.dec_mlp(z_samples)
@@ -101,7 +102,7 @@ class VAECell(object):
             dec_outs_2 = self.dec_fc_2(dec_outs_2)
 
         # for computing BOW loss
-        if params.with_bow_loss:
+        if params.with_BOW:
             bow_fc1 = self.bow_fc1(dec_input_1)
             bow_fc1 = F.tanh(bow_fc1)
             if params.dropout > 0:
@@ -115,8 +116,9 @@ class VAECell(object):
             if params.dropout > 0:
                 bow_fc2 = F.dropout(bow_fc2, p=params.dropout)
             self.bow_logits2 = self.bow_project2(bow_fc2)
-
-        return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
+            return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
+        else:
+            return net2, dec_outs_1, dec_outs_2
 
     def forward(self,
                 inputs,
@@ -131,7 +133,7 @@ class VAECell(object):
         if self._state_is_tuple:
             (c_prev, h_prev) = state
         # encode
-        logits_z, log_q_z = self.encode(inputs, h_prev)
+        logits_z, q_z, log_q_z = self.encode(inputs, h_prev)
 
         # sample
         z_samples, logits_z_samples = gumbel_softmax(
@@ -159,7 +161,10 @@ class VAECell(object):
                                 dim=1)  # [batch, encoding_cell_size * 2 + 200]
         next_state = self.state_rnn(recur_input, state)
 
-        return dec_outs_1,
+        if params.with_BOW:
+            return dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z, bow_logits1, bow_logits2
+        else:
+            return dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z
 
-        return elbo_t, logits_z_samples, next_state[
-            1], p_z, self.bow_logits1, self.bow_logits2
+        # return elbo_t, logits_z_samples, next_state[
+        #     1], p_z, self.bow_logits1, self.bow_logits2
