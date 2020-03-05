@@ -13,16 +13,7 @@ import params
 
 
 class VAECell(object):
-    def __init__(self,
-                 use_peepholes=False,
-                 cell_clip=None,
-                 initializer=None,
-                 num_proj=None,
-                 proj_clip=None,
-                 num_unit_shards=None,
-                 num_proj_shards=None,
-                 forget_bias=1.0,
-                 state_is_tuple=True):
+    def __init__(self, state_is_tuple=True):
 
         self._state_is_tuple = state_is_tuple
         self.num_zt = params.n_state

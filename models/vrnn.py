@@ -26,7 +26,7 @@ class VRNN(nn.Module):
         super(VRNN, self).__init__()
 
         # neural layers
-        self.embedding = nn.Embedding(params.n_vocab, params.embed_size)
+        self.embedding = nn.Embedding(params.max_vocab_cnt, params.embed_size)
 
         if params.cell_type == "gru":
             self.sent_rnn = nn.GRU(params.embed_size,
@@ -41,21 +41,7 @@ class VRNN(nn.Module):
                                     batch_first=True,
                                     dropout=params.dropout)
 
-        self.vae_cell = VAECell(
-            num_units=300,
-            # num_zt=self.config.n_state,
-            # vocab_size=self.n_vocab,
-            # max_utt_len=self.max_utt_len,
-            # config=config,
-            use_peepholes=False,
-            cell_clip=None,
-            initializer=None,
-            num_proj=None,
-            proj_clip=None,
-            num_unit_shards=None,
-            num_proj_shards=None,
-            forget_bias=1.0,
-            state_is_tuple=True)
+        self.vae_cell = VAECell(state_is_tuple=True)
 
     def forward(self, usr_input_sent, sys_input_sent, dialog_length_mask,
                 usr_input_mask, sys_input_mask):
@@ -95,15 +81,15 @@ class VRNN(nn.Module):
 
         ########################### state level ############################
         dec_input_embedding_usr = self.embedding(
-            usr_input_sent)  # (16, 10, 50, 300)
+            usr_input_sent)  # (16, 10, 40, 300)
         dec_input_embedding_sys = self.embedding(
-            sys_input_sent)  # (16, 10, 50, 300)
+            sys_input_sent)  # (16, 10, 40, 300)
         dec_input_embedding = [
             dec_input_embedding_usr, dec_input_embedding_sys
         ]
 
-        dec_seq_lens_usr = torch.sum(torch.sign(self.usr_full_mask), dim=2)
-        dec_seq_lens_sys = torch.sum(torch.sign(self.sys_full_mask), dim=2)
+        dec_seq_lens_usr = torch.sum(torch.sign(usr_input_mask), dim=2)
+        dec_seq_lens_sys = torch.sum(torch.sign(sys_input_mask), dim=2)
         dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
 
         output_tokens = [usr_input_sent, sys_input_sent]
