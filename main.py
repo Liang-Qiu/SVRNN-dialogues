@@ -20,9 +20,6 @@ def get_dataset():
     with open(params.api_dir, "rb") as fh:
         api = pkl.load(fh, encoding='latin1')
     dial_corpus = api.get_dialog_corpus()
-    # if params.with_label_loss:
-    #     labeled_dial_labels = api.get_state_corpus(
-    #         params.max_dialog_len)['labeled']
 
     train_dial, labeled_dial, test_dial = dial_corpus.get(
         "train"), dial_corpus.get("labeled"), dial_corpus.get("test")
@@ -33,51 +30,20 @@ def get_dataset():
     valid_feed = test_feed = SWDADataLoader("Test", test_dial,
                                             params.max_utt_len,
                                             params.max_dialog_len)
-
-    # if params.with_label_loss:
-    #     labeled_feed = SWDADataLoader("Labeled",
-    #                                   labeled_dial,
-    #                                   params.max_utt_len,
-    #                                   params.max_dialog_len,
-    #                                   labeled=True)
-    #     return train_feed, valid_feed, test_feed, labeled_feed
     return train_feed, valid_feed, test_feed
 
 
 def train(model, train_loader, optimizer):
+    model.train()
     while True:
+        optimizer.zero_grad()
         batch = train_loader.next_batch()
         if batch is None:
             break
-        model(*batch)
-        print("training")
-    # model.train()
-    # loss = 0
-
-    # for batch_idx, (data, _) in enumerate(train_loader):
-    #     optimizer.zero_grad()
-    #     _, _ = model(data)
-    #     loss = loss_function()
-    #     loss.backward()
-
-
-#         train_loss += loss.data[0]
-#         optimizer.step()
-
-#         if batch_idx % 100 == 1:
-#             temp = np.maximum(temp * np.exp(-ANNEAL_RATE * batch_idx),
-#                               temp_min)
-
-#         if batch_idx % args.log_interval == 0:
-#             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-#                 epoch, batch_idx * len(data), len(train_loader.dataset),
-#                 100. * batch_idx / len(train_loader),
-#                 loss.data[0] / len(data)))
-#     print('====> Epoch: {} Average loss: {:.4f}'.format(
-#         epoch, train_loss / len(train_loader.dataset)))
-
-# def eval():
-#     pass
+        loss = model(*batch)
+        loss.backward()
+        optimizer.step()
+        print(loss)
 
 
 def main():
