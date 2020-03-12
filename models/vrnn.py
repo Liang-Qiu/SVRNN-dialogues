@@ -15,7 +15,6 @@ import sys
 sys.path.append("..")
 import params
 from .vae_cell import VAECell
-from utils.loss import BPR_BOW_loss
 
 
 class VRNN(nn.Module):
@@ -44,6 +43,7 @@ class VRNN(nn.Module):
     def forward(self, usr_input_sent, sys_input_sent, dialog_length_mask,
                 usr_input_mask, sys_input_mask):
         ########################## sent_embedding  ######################
+        print(usr_input_sent)
         usr_input_embedding = self.embedding(
             usr_input_sent)  # (16, 10, 40, 300)
         usr_input_embedding = usr_input_embedding.view(
@@ -95,7 +95,7 @@ class VRNN(nn.Module):
 
         output_tokens = [usr_input_sent, sys_input_sent]
 
-        initial_prev_z = torch.ones(params.batch_size, params.n_state)
+        prev_z = torch.ones(params.batch_size, params.n_state)
 
         losses = []
         for utt in range(params.max_dialog_len):
@@ -114,23 +114,13 @@ class VRNN(nn.Module):
                 output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
 
-            prev_z = initial_prev_z
-            state, dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z, bow_logits1, bow_logits2 = self.vae_cell(
+            elbo_t, z_samples, next_state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
                 inputs,
                 state,
                 dec_input_emb,
                 dec_seq_len,
                 output_token,
                 prev_z_t=prev_z)
-            # losses = losses.append(
-            #     BPR_BOW_loss(output_tokens,
-            #                  dec_outs_1,
-            #                  dec_outs_2,
-            #                  log_p_z,
-            #                  log_q_z,
-            #                  q_z,
-            #                  bow_logits1=bow_logits1,
-            #                  bow_logits2=bow_logits2))
 
     #     losses, z_ts, p_ts, bow_logits1, bow_logits2 = dynamic_vae(
     #         self.VAE_cell,

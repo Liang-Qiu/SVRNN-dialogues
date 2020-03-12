@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from .sequential import MLP
 sys.path.append("..")
 from utils.sample import gumbel_softmax
+from utils.loss import BPR_BOW_loss
 import params
 
 
@@ -111,7 +112,7 @@ class VAECell(nn.Module):
             bow_fc2 = torch.tanh(bow_fc2)
             if params.dropout > 0:
                 bow_fc2 = F.dropout(bow_fc2, p=params.dropout)
-            self.bow_logits2 = self.bow_project2(bow_fc2)
+            bow_logits2 = self.bow_project2(bow_fc2)
         return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
 
     def forward(self,
@@ -155,10 +156,14 @@ class VAECell(nn.Module):
                                 dim=1)  # [batch, encoding_cell_size * 2 + 200]
         next_state = self.state_rnn(recur_input, state)
 
-        if params.with_BOW:
-            return next_state, dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z, bow_logits1, bow_logits2
-        else:
-            return nect_state, dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z, None, None
+        elbo_t = BPR_BOW_loss(output_tokens,
+                              dec_outs_1,
+                              dec_outs_2,
+                              log_p_z,
+                              log_q_z,
+                              p_z,
+                              q_z,
+                              bow_logits1=bow_logits1,
+                              bow_logits2=bow_logits2)
 
-        # return elbo_t, logits_z_samples, next_state[
-        #     1], p_z, self.bow_logits1, self.bow_logits2
+        return elbo_t, z_samples, next_state, p_z, bow_logits1, bow_logits2
