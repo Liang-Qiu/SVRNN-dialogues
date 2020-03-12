@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-sys.append("..")
+sys.path.append("..")
 import params
 
 

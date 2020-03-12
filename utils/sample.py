@@ -14,7 +14,7 @@ def sample_gumbel(shape, eps=1e-20, device='cpu'):
 def gumbel_softmax_sample(logits, temperature):
     """ Draw a sample from the Gumbel-Softmax distribution"""
     y = logits + sample_gumbel(logits.size())
-    return F.softmax(y / temperature), y / temperature
+    return F.softmax(y / temperature, dim=1), y / temperature
 
 
 def gumbel_softmax(logits, temperature, hard=False):

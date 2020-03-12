@@ -15,7 +15,7 @@ import sys
 sys.path.append("..")
 import params
 from .vae_cell import VAECell
-# from models.dynamic_VAE import dynamic_vae
+from utils.loss import BPR_BOW_loss
 
 
 class VRNN(nn.Module):
@@ -32,14 +32,12 @@ class VRNN(nn.Module):
             self.sent_rnn = nn.GRU(params.embed_size,
                                    params.encoding_cell_size,
                                    params.num_layer,
-                                   batch_first=True,
-                                   dropout=params.dropout)
+                                   batch_first=True)
         else:
             self.sent_rnn = nn.LSTM(params.embed_size,
                                     params.encoding_cell_size,
                                     params.num_layer,
-                                    batch_first=True,
-                                    dropout=params.dropout)
+                                    batch_first=True)
 
         self.vae_cell = VAECell(state_is_tuple=True)
 
@@ -66,8 +64,9 @@ class VRNN(nn.Module):
         usr_sent_embedding = usr_sent_embedding.view(
             -1, params.max_dialog_len,
             params.encoding_cell_size)  # (16, 10, 400)
-        sys_sent_embedding = sys_sent_embedding.view(-1, params.max_dialog_len,
-                                                     params.encoding_cell_size)
+        sys_sent_embedding = sys_sent_embedding.view(
+            -1, params.max_dialog_len,
+            params.encoding_cell_size)  # (16, 10, 400)
 
         if params.dropout > 0:
             usr_sent_embedding = F.dropout(usr_sent_embedding,
@@ -76,8 +75,8 @@ class VRNN(nn.Module):
                                            p=params.dropout)
 
         joint_embedding = torch.cat(
-            [usr_input_embedding, sys_input_embedding],
-            dim=2)  # (batch, dialog_len, embedding_size*2) (16, 10, 800)
+            [usr_sent_embedding, sys_sent_embedding],
+            dim=2)  # (batch, dialog_len, encoding_cell_size * 2) (16, 10, 800)
 
         ########################### state level ############################
         dec_input_embedding_usr = self.embedding(
@@ -88,15 +87,51 @@ class VRNN(nn.Module):
             dec_input_embedding_usr, dec_input_embedding_sys
         ]
 
-        dec_seq_lens_usr = torch.sum(torch.sign(usr_input_mask), dim=2)
-        dec_seq_lens_sys = torch.sum(torch.sign(sys_input_mask), dim=2)
+        dec_seq_lens_usr = torch.sum(torch.sign(usr_input_mask),
+                                     dim=2)  # (16, 10)
+        dec_seq_lens_sys = torch.sum(torch.sign(sys_input_mask),
+                                     dim=2)  # (16, 10)
         dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
 
         output_tokens = [usr_input_sent, sys_input_sent]
 
-    #     self.initial_prev_z = tf.placeholder(tf.float32,
-    #                                          (None, self.config.n_state),
-    #                                          'initial_prev_z')
+        initial_prev_z = torch.ones(params.batch_size, params.n_state)
+
+        losses = []
+        for utt in range(params.max_dialog_len):
+            inputs = joint_embedding[:, utt, :]
+            if params.cell_type == "gru":
+                state = torch.zeros(params.batch_size, params.state_cell_size)
+            else:
+                c = h = torch.zeros(params.batch_size, params.state_cell_size)
+                state = (c, h)
+            dec_input_emb = [
+                dec_input_embedding[0][:, utt, :, :],
+                dec_input_embedding[1][:, utt, :, :]
+            ]
+            dec_seq_len = [dec_seq_lens[0][:, utt], dec_seq_lens[1][:, utt]]
+            output_token = [
+                output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
+            ]
+
+            prev_z = initial_prev_z
+            state, dec_outs_1, dec_outs_2, log_p_z, log_q_z, q_z, bow_logits1, bow_logits2 = self.vae_cell(
+                inputs,
+                state,
+                dec_input_emb,
+                dec_seq_len,
+                output_token,
+                prev_z_t=prev_z)
+            # losses = losses.append(
+            #     BPR_BOW_loss(output_tokens,
+            #                  dec_outs_1,
+            #                  dec_outs_2,
+            #                  log_p_z,
+            #                  log_q_z,
+            #                  q_z,
+            #                  bow_logits1=bow_logits1,
+            #                  bow_logits2=bow_logits2))
+
     #     losses, z_ts, p_ts, bow_logits1, bow_logits2 = dynamic_vae(
     #         self.VAE_cell,
     #         joint_embedding,
