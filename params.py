@@ -1,5 +1,6 @@
 """Global parameters.
 """
+
 word2vec_path = None  # The path to word2vec. Can be None.
 data_dir = "data/data.pkl"  # Raw data directory.
 work_dir = "working"  # Experiment results directory.
