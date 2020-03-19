@@ -16,7 +16,7 @@ from models.vrnn import VRNN
 from data_apis.data_utils import SWDADataLoader
 from data_apis.SWDADialogCorpus import SWDADialogCorpus
 from utils.loss import print_loss
-from utils.interpretion import interpret_structure
+# from utils.interpretion import interpret_structure
 import params
 
 
@@ -76,6 +76,17 @@ def valid(model, valid_loader):
         losses.append(loss)
 
     print_loss("ELBO_VALID", ['losses valid'], [losses], "")
+
+
+def decode(model, data_loader):
+    results = []
+    while True:
+        batch = data_loader.next_batch()
+        if batch is None:
+            break
+        result = model(*batch, interpret=True)
+        results.append(result)
+    return results
 
 
 def main(args):
@@ -142,37 +153,45 @@ def main(args):
     else:
         state = torch.load(checkpoint_path)
         model.load_state_dict(state['state_dict'])
-        # TODO:
-        interpret_structure()
+        if not args.use_test_batch:
+            train_loader.epoch_init(params.batch_size, shuffle=False)
+            results = decode(model, train_loader)
+        else:
+            valid_loader.epoch_init(params.batch_size, shuffle=False)
+            results = decode(
+                model, valid_loader
+            )  # [num_batches(8), 4, max_dialog_len(10), batch_size(16), n_state(10)]
+        with open(os.path.join(log_dir, "result.pkl"), "wb") as fh:
+            pkl.dump(results, fh)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--forward_only',
-                        '-f',
                         default=False,
                         type=bool,
                         help='Only do decoding')
     parser.add_argument('--resume',
-                        '-r',
                         default=False,
                         type=bool,
                         help='Resume training from checkpoint')
     parser.add_argument('--checkpoint_path',
-                        '-c',
                         default='',
                         type=str,
                         help='Name of the saved model checkpoint')
     parser.add_argument('--test_path',
-                        '-t',
                         default='',
                         type=str,
                         help='The dir to load checkpoint for forward only')
     parser.add_argument('--save_model',
-                        '-s',
                         default=True,
                         type=bool,
                         help='Create checkpoints')
+    parser.add_argument(
+        '--use_test_batch',
+        default=True,
+        type=bool,
+        help='Whether or not use test dataset for structure interpretion')
 
     args = parser.parse_args()
 

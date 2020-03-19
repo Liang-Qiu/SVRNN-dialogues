@@ -4,9 +4,8 @@ word2vec_path = None  # The path to word2vec. Can be None.
 data_dir = "data/data.pkl"  # Raw data directory.
 log_dir = "log"  # Experiment results directory.
 equal_batch = True  # Make each batch has similar length.
-result_path = "data/results.pkl"  # The dir to results.
 use_test_batch = True  # Use test batch during testing.
-n_state = 10  # Number of states.
+n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 api_dir = "data/cambridge_data/api_cambridge.pkl"  # "data/api_simdial_weather.pkl"#"data/cambridge_data/api_cambridge.pkl"
 rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.pkl"#"data/cambridge_data/rev_vocab.pkl"
 

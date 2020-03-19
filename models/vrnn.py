@@ -40,8 +40,13 @@ class VRNN(nn.Module):
 
         self.vae_cell = VAECell(state_is_tuple=True)
 
-    def forward(self, usr_input_sent, sys_input_sent, dialog_length_mask,
-                usr_input_mask, sys_input_mask):
+    def forward(self,
+                usr_input_sent,
+                sys_input_sent,
+                dialog_length_mask,
+                usr_input_mask,
+                sys_input_mask,
+                interpret=False):
         ########################## sent_embedding  ######################
         usr_input_embedding = self.embedding(
             usr_input_sent)  # (16, 10, 40, 300)
@@ -97,6 +102,10 @@ class VRNN(nn.Module):
         prev_z = torch.ones(params.batch_size, params.n_state)
 
         losses = []
+        z_ts = []
+        p_ts = []
+        bow_logits_1 = []
+        bow_logits_2 = []
         for utt in range(params.max_dialog_len):
             inputs = joint_embedding[:, utt, :]
             if params.cell_type == "gru":
@@ -128,8 +137,15 @@ class VRNN(nn.Module):
             # TODO: stop gradient?
             prev_z = zts_onehot
             losses.append(elbo_t)
+            z_ts.append(z_samples)
+            p_ts.append(p_z)
+            bow_logits_1.append(bow_logits1)
+            bow_logits_2.append(bow_logits2)
+
         loss = torch.cat(losses, dim=0)
         loss_avg = torch.sum(loss) / (torch.sum(usr_input_mask) +
                                       torch.sum(sys_input_mask))
-
-        return loss_avg
+        if not interpret:
+            return loss_avg
+        else:
+            return z_ts, p_ts, bow_logits_1, bow_logits_2
