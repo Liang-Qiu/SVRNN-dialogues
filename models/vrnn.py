@@ -130,6 +130,6 @@ class VRNN(nn.Module):
             losses.append(elbo_t)
         loss = torch.cat(losses, dim=0)
         loss_avg = torch.sum(loss) / (torch.sum(usr_input_mask) +
-                                        torch.sum(sys_input_mask))
+                                      torch.sum(sys_input_mask))
 
         return loss_avg

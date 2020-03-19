@@ -1,8 +1,10 @@
 import sys
+import re
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 sys.path.append("..")
 import params
@@ -76,3 +78,19 @@ def BPR_BOW_loss(output_tokens,
     elbo_t = torch.unsqueeze(elbo_t, 1)
 
     return elbo_t
+
+
+def print_loss(prefix, loss_names, losses, postfix):
+    template = "%s "
+    for name in loss_names:
+        template += "%s " % name
+        template += " %f "
+    template += "%s"
+    template = re.sub(' +', ' ', template)
+    values = [prefix]
+
+    for loss in losses:
+        values.append(torch.mean(torch.stack(loss)))
+    values.append(postfix)
+
+    print(template % tuple(values))

@@ -1,14 +1,9 @@
 """Global parameters.
 """
-
 word2vec_path = None  # The path to word2vec. Can be None.
 data_dir = "data/data.pkl"  # Raw data directory.
-work_dir = "working"  # Experiment results directory.
+log_dir = "log"  # Experiment results directory.
 equal_batch = True  # Make each batch has similar length.
-resume = False  # Resume from previous.
-forward_only = False  # Only do decoding.
-save_model = True  # Create checkpoints.
-test_path = "run1500783422"  # The dir to load checkpoint for forward only.
 result_path = "data/results.pkl"  # The dir to results.
 use_test_batch = True  # Use test batch during testing.
 n_state = 10  # Number of states.
@@ -44,7 +39,7 @@ dropout = 0.4  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
 early_stop = True
-max_epoch = 60  # max number of epoch of training
+max_epoch = 2  #60  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
