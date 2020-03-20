@@ -16,7 +16,6 @@ from models.vrnn import VRNN
 from data_apis.data_utils import SWDADataLoader
 from data_apis.SWDADialogCorpus import SWDADialogCorpus
 from utils.loss import print_loss
-# from utils.interpretion import interpret_structure
 import params
 
 
@@ -161,6 +160,7 @@ def main(args):
             results = decode(
                 model, valid_loader
             )  # [num_batches(8), 4, max_dialog_len(10), batch_size(16), n_state(10)]
+            # TODO: exchange dim 2 and dim3
         with open(os.path.join(log_dir, "result.pkl"), "wb") as fh:
             pkl.dump(results, fh)
 

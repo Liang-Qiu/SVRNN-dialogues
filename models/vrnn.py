@@ -148,4 +148,4 @@ class VRNN(nn.Module):
         if not interpret:
             return loss_avg
         else:
-            return z_ts, p_ts, bow_logits_1, bow_logits_2
+            return usr_input_sent, sys_input_sent, z_ts, p_ts, bow_logits_1, bow_logits_2
