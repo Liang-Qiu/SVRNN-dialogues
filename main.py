@@ -9,7 +9,6 @@ import pickle as pkl
 import torch
 from torch import nn, optim
 import numpy as np
-import nltk
 from beeprint import pp
 
 from models.vrnn import VRNN

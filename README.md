@@ -1,4 +1,4 @@
-# graph-matching
+# TSAN-Dialogues
 
 ## Install
 
@@ -6,34 +6,20 @@
 make install
 ```
 
-## Prepare Dataset
-
-Download [Ubuntu Chat Corpus](https://daviduthus.org/UCC/)
+## Train  
 
 ```bash
-cd data/ubuntu_dataset/src
-python dataset_generator.py --data=path/to/your/ubuntu/chat/corpus/#ubuntu
-python dataset_separator.py --data=path/to/your/ubuntu/chat/corpus/#ubuntu/#ubuntu.gz
-python sample_generator.py --train_data=path/to/your/ubuntu/chat/corpus/#ubuntu/train-data.gz --dev_data=path/to/your/ubuntu/chat/corpus/#ubuntu/dev-data.gz --test_data=path/to/your/ubuntu/chat/corpus/#ubuntu/test-data.gz
+make train
 ```
 
-## Develop
+## Decode
 
 ```bash
-make develop
+make decode
 ```
 
-## Test
-
-Run all tests in the `/tests` folder
+## Interpret
 
 ```bash
-make develop
-make test
-```
-
-Test coverage
-
-```bash
-pytest --cov=graph_matching tests/
+make interpret
 ```
