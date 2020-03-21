@@ -142,10 +142,22 @@ class VRNN(nn.Module):
             bow_logits_1.append(bow_logits1)
             bow_logits_2.append(bow_logits2)
 
-        loss = torch.cat(losses, dim=0)
-        loss_avg = torch.sum(loss) / (torch.sum(usr_input_mask) +
-                                      torch.sum(sys_input_mask))
+        losses = torch.cat(losses, dim=0)
+        loss_avg = torch.sum(losses) / (torch.sum(usr_input_mask) +
+                                        torch.sum(sys_input_mask))
+
+        z_ts = torch.stack(z_ts)
+        p_ts = torch.stack(p_ts)
+        bow_logits_1 = torch.stack(bow_logits_1)
+        bow_logits_2 = torch.stack(bow_logits_2)
+
+        z_ts = z_ts.permute(1, 0, 2).cpu().detach().numpy()
+        p_ts = p_ts.permute(1, 0, 2).cpu().detach().numpy()
+        bow_logits_1 = bow_logits_1.permute(1, 0, 2).cpu().detach().numpy()
+        bow_logits_2 = bow_logits_2.permute(1, 0, 2).cpu().detach().numpy()
+
         if not interpret:
             return loss_avg
         else:
-            return usr_input_sent, sys_input_sent, z_ts, p_ts, bow_logits_1, bow_logits_2
+            return usr_input_sent.cpu().detach().numpy(), sys_input_sent.cpu(
+            ).detach().numpy(), z_ts, p_ts, bow_logits_1, bow_logits_2
