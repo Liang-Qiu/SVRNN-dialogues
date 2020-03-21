@@ -38,7 +38,7 @@ dropout = 0.4  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
 early_stop = True
-max_epoch = 2  #60  # max number of epoch of training
+max_epoch = 60  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True

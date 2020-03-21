@@ -156,45 +156,69 @@ def main(args):
                             converted_labels,
                             sys_side=1,
                             last_n=1))
-    WITH_START = True
-    if WITH_START:
+
+    if args.with_start:
         sents_by_state = [['START']] + sents_by_state
         sents_by_state_sys = [['START']] + sents_by_state_sys
 
     transition_count = np.zeros((params.n_state, params.n_state))
 
-    # for labels in converted_labels:
-    #     # origin = 0
-    #     for i in xrange(len(labels) - 1):
-    #         #dest = l
-    #         print(i)
-    #         transition_count[labels[i], labels[i + 1]] += 1
-    #         #origin = dest
-    #     #transition_prob[origin, 11] += 1
+    for labels in converted_labels:
+        for i in range(len(labels) - 1):
+            transition_count[labels[i], labels[i + 1]] += 1
 
-    # transition_prob = np.eye((params.n_state, params.n_state))
-    # for i in xrange(params.n_state):
-    #     transition_prob[i] = transition_count[i] / transition_count[i].sum()
+    transition_prob = np.zeros((params.n_state, params.n_state))
+    for i in range(params.n_state):
+        if transition_count[i].sum() != 0:
+            transition_prob[i] = transition_count[i] / transition_count[i].sum(
+            )
 
-    # # direct transition only, for direct transition, the transition probs are from the fetch_results from the model
-    # DIRECT_TRANSITION = False
-    # if DIRECT_TRANSITION:
-    #     label_i_list = np.eye(params.n_state, params.n_state)
-    #     for i in range(params.n_state):
-    #         label_i_list[i][i] = 1
-    #         print(label_i_list)
-    #     label_i_list = np.vstack([[1] * params.n_state, label_i_list])
+    # direct transition only, for direct transition, the transition probs are from the fetch_results from the model
+    if params.with_direct_transition:
+        label_i_list = np.eye(params.n_state, params.n_state)
+        label_i_list = np.vstack([[1] * params.n_state, label_i_list])
 
-    #     prob_list = []
-    #     for i in range(0, params.n_state + 1):
-    #         tmp_prob = np.matmul(
-    #             np.matmul(
-    #                 np.matmul(label_i_list[i], fetch_results[0]) +
-    #                 fetch_results[1], fetch_results[2]) + fetch_results[3],
-    #             fetch_results[4]) + fetch_results[5]
-    #         prob_list.append(softmax(tmp_prob))
+        w0 = state['state_dict']['vae_cell.transit_mlp._linear.0.weight'].cpu(
+        ).detach().numpy()
+        b0 = state['state_dict']['vae_cell.transit_mlp._linear.0.bias'].cpu(
+        ).detach().numpy()
+        w1 = state['state_dict']['vae_cell.transit_mlp._linear.1.weight'].cpu(
+        ).detach().numpy()
+        b1 = state['state_dict']['vae_cell.transit_mlp._linear.1.bias'].cpu(
+        ).detach().numpy()
+        w2 = state['state_dict']['vae_cell.transit_fc.weight'].cpu().detach(
+        ).numpy()
+        b2 = state['state_dict']['vae_cell.transit_fc.bias'].cpu().detach(
+        ).numpy()
 
-    #     transition_prob = prob_list
+        prob_list = []
+        for i in range(params.n_state + 1):
+            tmp_prob = np.matmul(
+                w2,
+                np.matmul(w1,
+                          np.matmul(w0, label_i_list[i]) + b0) + b1) + b2
+            prob_list.append(softmax(tmp_prob))
+
+        transition_prob = prob_list
+
+    print(transition_prob)
+
+    Counter(sents_by_state[0]).most_common(5)
+    Counter(sents_by_state[1]).most_common(5)
+    Counter(sents_by_state[2]).most_common(5)
+    Counter(sents_by_state[3]).most_common(5)
+    Counter(sents_by_state[4]).most_common(5)
+    Counter(sents_by_state[5]).most_common(5)
+    Counter(sents_by_state[6]).most_common(5)
+    Counter(sents_by_state[7]).most_common(5)
+    Counter(sents_by_state[8]).most_common(5)
+    Counter(sents_by_state[9]).most_common(5)
+    Counter(sents_by_state[10]).most_common(5)
+
+    for i in range(params.n_state):
+        print(i)
+        print(Counter(sents_by_state[i]).most_common(10))
+        print("\n")
 
 
 if __name__ == "__main__":
@@ -204,6 +228,8 @@ if __name__ == "__main__":
                         default='log/run1584581812',
                         type=str,
                         help='Path to the saved result')
+
+    parser.add_argument('--with_start', default=True, type=bool)
 
     args = parser.parse_args()
 
