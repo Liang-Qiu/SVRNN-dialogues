@@ -95,24 +95,26 @@ def main(args):
     np.random.seed(seed + 1)
     torch.manual_seed(seed + 2)
 
-    # set device
+    # TODO: set device
     use_cuda = params.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
     train_loader, valid_loader, test_loader, word2vec = get_dataset()
 
     if args.forward_only or args.resume:
-        log_dir = os.path.join(params.log_dir, args.test_path)
-        checkpoint_path = os.path.join(log_dir, args.checkpoint_path)
+        log_dir = os.path.join(params.log_dir, args.ckpt_dir)
+        checkpoint_path = os.path.join(log_dir, args.ckpt_name)
     else:
         log_dir = os.path.join(params.log_dir, "run" + str(int(time.time())))
     os.makedirs(log_dir, exist_ok=True)
 
     model = VRNN()
+    # TODO: learning rate with decay
     optimizer = optim.Adam(model.parameters(), lr=params.init_lr)
 
     if word2vec is not None and not args.forward_only:
         print("Load word2vec")
+        # TODO: trainable pretrained embedding
         model.embedding.from_pretrained(torch.from_numpy(word2vec))
 
     # Write config to a file for logging
@@ -129,6 +131,7 @@ def main(args):
         last_epoch = state['epoch']
 
     # Train and evaluate
+    # TODO: early stop
     if not args.forward_only:
         for epoch in range(last_epoch + 1, params.max_epoch + 1):
             print(">> Epoch %d with lr %f" % (epoch, params.init_lr))
@@ -150,6 +153,7 @@ def main(args):
     # Inference only
     else:
         state = torch.load(checkpoint_path)
+        print("Load model from %s" % checkpoint_path)
         model.load_state_dict(state['state_dict'])
         if not args.use_test_batch:
             train_loader.epoch_init(params.batch_size, shuffle=False)
@@ -158,8 +162,7 @@ def main(args):
             valid_loader.epoch_init(params.batch_size, shuffle=False)
             results = decode(
                 model, valid_loader
-            )  # [num_batches(8), 4, max_dialog_len(10), batch_size(16), n_state(10)]
-            # TODO: exchange dim 2 and dim3
+            )  # [num_batches(8), 4, batch_size(16), max_dialog_len(10), n_state(10)]
         with open(os.path.join(log_dir, "result.pkl"), "wb") as fh:
             pkl.dump(results, fh)
 
@@ -169,28 +172,30 @@ if __name__ == "__main__":
     parser.add_argument('--forward_only',
                         default=False,
                         type=bool,
-                        help='Only do decoding')
+                        help='Whether only do decoding')
     parser.add_argument('--resume',
                         default=False,
                         type=bool,
                         help='Resume training from checkpoint')
-    parser.add_argument('--checkpoint_path',
-                        default='',
-                        type=str,
-                        help='Name of the saved model checkpoint')
-    parser.add_argument('--test_path',
-                        default='',
-                        type=str,
-                        help='The dir to load checkpoint for forward only')
+    parser.add_argument(
+        '--ckpt_dir',
+        default='',
+        type=str,
+        help='The directory to load the checkpoint, e.g. run1585003537')
+    parser.add_argument(
+        '--ckpt_name',
+        default='',
+        type=str,
+        help='Name of the saved model checkpoint, e.g. vrnn_60.pt')
     parser.add_argument('--save_model',
                         default=True,
                         type=bool,
-                        help='Create checkpoints')
+                        help='whether save checkpoints')
     parser.add_argument(
         '--use_test_batch',
         default=True,
         type=bool,
-        help='Whether or not use test dataset for structure interpretion')
+        help='Whether use test dataset for structure interpretion')
 
     args = parser.parse_args()
 

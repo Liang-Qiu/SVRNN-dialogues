@@ -7,7 +7,7 @@ train:
 	python main.py
 
 decode:
-	python main/py --forward_only True
+	python main.py --forward_only True --ckpt_dir run1585003537 --ckpt_name vrnn_5.pt 
 
 style:
 	yapf -i -r --style google .

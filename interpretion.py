@@ -99,7 +99,7 @@ def main(args):
     with open(os.path.join(args.log_dir, "result.pkl"), "rb") as fh:
         results = pkl.load(fh)
 
-    state = torch.load(os.path.join(args.log_dir, "vrnn_2.pt"))
+    state = torch.load(os.path.join(args.log_dir, "vrnn_5.pt"))
     # pp(state['state_dict'])
 
     converted_labels = []
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--log_dir',
-                        default='log/run1584581812',
+                        default='log/run1585003537',
                         type=str,
                         help='Path to the saved result')
 

@@ -4,7 +4,8 @@ import torch
 import torch.nn.functional as F
 
 
-# thanks for the implementation at https://github.com/dev4488/VAE_gumble_softmax/blob/master/vae_gumbel_softmax.py
+# Thanks for the implementation at https://github.com/dev4488/VAE_gumble_softmax/blob/master/vae_gumbel_softmax.py
+# Note: PyTorch also has this in their official API now.
 def sample_gumbel(shape, eps=1e-20, device='cpu'):
     """Sample from Gumbel(0, 1)"""
     U = torch.rand(shape, requires_grad=True).to(device)
