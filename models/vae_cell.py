@@ -129,9 +129,14 @@ class VAECell(nn.Module):
         # encode
         logits_z, q_z, log_q_z = self.encode(inputs, h_prev)
 
+        print("logits_z")
+        print(logits_z)
+
         # sample
         z_samples, logits_z_samples = gumbel_softmax(
             logits_z, self.tau, hard=False)  # [batch, n_state]
+        print("z_samples")
+        print(z_samples)
 
         # decode
         net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2 = self.decode(

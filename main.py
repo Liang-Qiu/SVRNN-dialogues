@@ -115,7 +115,8 @@ def main(args):
     if word2vec is not None and not args.forward_only:
         print("Load word2vec")
         # TODO: trainable pretrained embedding
-        model.embedding.from_pretrained(torch.from_numpy(word2vec))
+        model.embedding.from_pretrained(torch.from_numpy(word2vec),
+                                        freeze=False)
 
     # Write config to a file for logging
     if not args.forward_only:

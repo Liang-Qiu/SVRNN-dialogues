@@ -55,13 +55,34 @@ class VRNN(nn.Module):
         sys_input_embedding = sys_input_embedding.view(
             [-1, params.max_utt_len, params.embed_size])  # (160, 40, 300)
 
-        # TODO: dynamic RNN
+        usr_sent_mask = torch.sign(usr_input_mask.view(
+            -1, params.max_utt_len))  # (160, 40)
+        sys_sent_mask = torch.sign(sys_input_mask.view(-1, params.max_utt_len))
+        usr_sent_len = torch.sum(usr_sent_mask, dim=1)  # (160)
+        sys_sent_len = torch.sum(sys_sent_mask, dim=1)
         if params.cell_type == "gru":
-            _, usr_sent_embedding = self.sent_rnn(usr_input_embedding)
-            _, sys_sent_embedding = self.sent_rnn(sys_input_embedding)
+            usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
+            sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)
         else:
-            _, (usr_sent_embedding, _) = self.sent_rnn(usr_input_embedding)
-            _, (sys_sent_embedding, _) = self.sent_rnn(sys_input_embedding)
+            usr_sent_embeddings, (_, _) = self.sent_rnn(usr_input_embedding)
+            sys_sent_embeddings, (_, _) = self.sent_rnn(sys_input_embedding)
+
+        usr_sent_embedding = torch.zeros(
+            params.batch_size * params.max_dialog_len,
+            params.encoding_cell_size)
+        sys_sent_embedding = torch.zeros(
+            params.batch_size * params.max_dialog_len,
+            params.encoding_cell_size)
+        for i in range(usr_sent_embedding.shape[0]):
+            if usr_sent_len[i] > 0:
+                usr_sent_embedding[i] = usr_sent_embeddings[i,
+                                                            usr_sent_len[i] -
+                                                            1, :]
+            if sys_sent_len[i] > 0:
+                sys_sent_embedding[i] = sys_sent_embeddings[i,
+                                                            sys_sent_len[i] -
+                                                            1, :]
+
         usr_sent_embedding = usr_sent_embedding.view(
             -1, params.max_dialog_len,
             params.encoding_cell_size)  # (16, 10, 400)
@@ -108,19 +129,24 @@ class VRNN(nn.Module):
         else:
             h = c = torch.zeros(params.batch_size, params.state_cell_size)
             state = (h, c)
-        for utt in range(params.max_dialog_len - 1):
+        for utt in range(params.max_dialog_len):
+            print(utt)
+            print("prev_z")
+            print(prev_z)
+
             inputs = joint_embedding[:, utt, :]
-            # TODO: utt+1?
+            print("input token")
+            print(usr_input_sent[:, utt, :])
+            print("input_embedding")
+            print(inputs)
+
             dec_input_emb = [
-                dec_input_embedding[0][:, utt + 1, :, :],
-                dec_input_embedding[1][:, utt + 1, :, :]
+                dec_input_embedding[0][:, utt, :, :],
+                dec_input_embedding[1][:, utt, :, :]
             ]
-            dec_seq_len = [
-                dec_seq_lens[0][:, utt + 1], dec_seq_lens[1][:, utt + 1]
-            ]
+            dec_seq_len = [dec_seq_lens[0][:, utt], dec_seq_lens[1][:, utt]]
             output_token = [
-                output_tokens[0][:, utt + 1, :], output_tokens[1][:,
-                                                                  utt + 1, :]
+                output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
 
             elbo_t, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
@@ -139,8 +165,6 @@ class VRNN(nn.Module):
             # stop gradient
             zts_onehot = (zts_onehot - z_samples).detach() + z_samples
             prev_z = zts_onehot
-            print(utt)
-            print(zts_onehot)
 
             losses.append(elbo_t)
             z_ts.append(zts_onehot)

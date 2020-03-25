@@ -28,13 +28,15 @@ def BPR_BOW_loss(output_tokens,
 
     if params.word_weights is not None:
         weights = torch.tensor(params.word_weights, requires_grad=False)
-        rc_loss_1 = nn.CrossEntropyLoss(weight=weights,
-                                        reduction='sum')(dec_outs_1, labels_1)
-        rc_loss_2 = nn.CrossEntropyLoss(weight=weights,
-                                        reduction='sum')(dec_outs_2, labels_2)
+        rc_loss_1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
+            dec_outs_1, labels_1) * label_mask_1
+        rc_loss_2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
+            dec_outs_2, labels_2) * label_mask_2
     else:
-        rc_loss_1 = nn.CrossEntropyLoss(reduction='sum')(dec_outs_1, labels_1)
-        rc_loss_2 = nn.CrossEntropyLoss(reduction='sum')(dec_outs_2, labels_2)
+        rc_loss_1 = nn.CrossEntropyLoss(reduction='none')(
+            dec_outs_1, labels_1) * label_mask_1
+        rc_loss_2 = nn.CrossEntropyLoss(reduction='none')(
+            dec_outs_2, labels_2) * label_mask_2
 
     # KL_loss
     kl_tmp = (log_q_z - log_p_z) * q_z
@@ -51,9 +53,9 @@ def BPR_BOW_loss(output_tokens,
         kl_bpr = torch.div(torch.sum(kl_bpr), params.batch_size)
 
     if not params.with_BPR:
-        elbo_t = rc_loss_1 + rc_loss_2 + kl_tmp
+        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) #+ kl_tmp
     else:
-        elbo_t = rc_loss_1 + rc_loss_2 + kl_bpr
+        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) #+ kl_bpr
 
     # BOW_loss
     if params.with_BOW:
