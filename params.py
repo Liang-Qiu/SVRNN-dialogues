@@ -23,7 +23,7 @@ num_layer = 1  # number of context RNN layers
 
 # Optimization parameters
 op = "adam"  # adam, rmsprop, sgd
-max_epoch = 30  # max number of epoch of training
+max_epoch = 60  # max number of epoch of training
 grad_clip = 5.0  # gradient abs max cut
 init_w = 0.08  # uniform random from [-init_w, init_w]
 batch_size = 16  # mini-batch size

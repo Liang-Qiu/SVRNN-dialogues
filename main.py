@@ -95,7 +95,7 @@ def decode(model, data_loader):
         batch = data_loader.next_batch()
         if batch is None:
             break
-        result = model(*batch, interpret=True)
+        result = model(*batch, training=False)
         results.append(result)
     return results
 
