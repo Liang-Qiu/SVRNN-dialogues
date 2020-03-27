@@ -29,14 +29,14 @@ def BPR_BOW_loss(output_tokens,
     if params.word_weights is not None:
         weights = torch.tensor(params.word_weights, requires_grad=False)
         rc_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_1, labels_1) * label_mask_1
+            dec_outs_1, labels_1) * label_mask_1.float()
         rc_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_2, labels_2) * label_mask_2
+            dec_outs_2, labels_2) * label_mask_2.float()
     else:
         rc_loss1 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_1, labels_1) * label_mask_1
+            dec_outs_1, labels_1) * label_mask_1.float()
         rc_loss2 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_2, labels_2) * label_mask_2
+            dec_outs_2, labels_2) * label_mask_2.float()
     rc_loss_1 = torch.sum(rc_loss1)
     rc_loss_2 = torch.sum(rc_loss2)
 
@@ -71,14 +71,15 @@ def BPR_BOW_loss(output_tokens,
         if params.word_weights is not None:
             weights = torch.tensor(params.word_weights, requires_grad=False)
             bow_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-                tile_bow_logits1, labels_1) * label_mask_1
+                tile_bow_logits1, labels_1) * label_mask_1.float()
             bow_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-                tile_bow_logits2, labels_2) * label_mask_2
+                tile_bow_logits2, labels_2) * label_mask_2.float()
         else:
             bow_loss1 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits1, labels_1) * label_mask_1
+                tile_bow_logits1, labels_1) * label_mask_1.float()
             bow_loss2 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits2, labels_2) * label_mask_2
+                tile_bow_logits2, labels_2) * label_mask_2.float()
+
         bow_loss_1 = params.bow_loss_weight * torch.sum(bow_loss1)
         bow_loss_2 = params.bow_loss_weight * torch.sum(bow_loss2)
 
