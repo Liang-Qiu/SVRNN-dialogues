@@ -49,7 +49,7 @@ def BPR_BOW_loss(output_tokens,
 
     # KL_loss
     kl_tmp = (log_q_z - log_p_z) * q_z
-    kl_tmp = torch.sum(kl_tmp)
+    kl_tmp =  1000 * torch.sum(kl_tmp)
 
     if params.with_BPR:
         q_z_prime = torch.mean(q_z, dim=0)
@@ -59,12 +59,12 @@ def BPR_BOW_loss(output_tokens,
         log_p_z_prime = torch.log(p_z_prime + 1e-20)
 
         kl_bpr = (log_q_z_prime - log_p_z_prime) * q_z_prime
-        kl_bpr = torch.div(torch.sum(kl_bpr), params.batch_size)
+        kl_bpr = 1000 * torch.div(torch.sum(kl_bpr), params.batch_size)
 
     if not params.with_BPR:
-        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) #+ kl_tmp
+        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) + kl_tmp
     else:
-        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) #+ kl_bpr
+        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) + kl_bpr
 
     # BOW_loss
     if params.with_BOW:

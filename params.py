@@ -10,7 +10,7 @@ n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
 use_cuda = False
 seed = 233
-max_vocab_cnt = 1000
+max_vocab_cnt = 10000
 
 # Network general
 cell_type = "lstm"  # gru or lstm
@@ -37,7 +37,7 @@ max_epoch = 50  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
-bow_loss_weight = 0.1 # weight of the bow_loss
+bow_loss_weight = 0.01 # weight of the bow_loss
 with_label_loss = False  # semi-supervised or not
 with_BPR = True
 with_direct_transition = False  # direct prior transition prob

@@ -173,6 +173,7 @@ class VRNN(nn.Module):
 
             print("vrnn.py zts_onehot")
             print(zts_onehot)
+
             losses.append(elbo_t)
             z_ts.append(zts_onehot)
             p_ts.append(p_z)
