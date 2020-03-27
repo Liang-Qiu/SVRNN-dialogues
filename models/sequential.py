@@ -25,10 +25,10 @@ class MLP(nn.Module):
             for i in range(len(dims) - 1)
         ])
 
-    def forward(self, x):
+    def forward(self, x, training=True):
         for _, layer in enumerate(self._linear):
             x = layer(x)
-        if self._dropout_rate not in (None, 0):
+        if self._dropout_rate not in (None, 0) and training:
             x = nn.Dropout(p=self._dropout_rate)(x)
         if self._activate_final:
             x = nn.ReLU(x)

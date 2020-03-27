@@ -18,7 +18,7 @@ from utils.loss import print_loss
 import params
 
 
-def get_dataset():
+def get_dataset(device):
     with open(params.api_dir, "rb") as fh:
         api = pkl.load(fh, encoding='latin1')
     dial_corpus = api.get_dialog_corpus()
@@ -27,19 +27,27 @@ def get_dataset():
         "train"), dial_corpus.get("labeled"), dial_corpus.get("test")
 
     # convert to numeric input outputs
-    train_feed = SWDADataLoader("Train", train_dial, params.max_utt_len,
-                                params.max_dialog_len)
-    valid_feed = test_feed = SWDADataLoader("Test", test_dial,
-                                            params.max_utt_len,
-                                            params.max_dialog_len)
-    return train_feed, valid_feed, test_feed, np.array(api.word2vec)
+    train_loader = SWDADataLoader("Train",
+                                  train_dial,
+                                  params.max_utt_len,
+                                  params.max_dialog_len,
+                                  device=device)
+    valid_loader = test_loader = SWDADataLoader("Test",
+                                                test_dial,
+                                                params.max_utt_len,
+                                                params.max_dialog_len,
+                                                device=device)
+    return train_loader, valid_loader, test_loader, np.array(api.word2vec)
 
 
 def train(model, train_loader, optimizer):
-    losses = []
+    elbo_t = []
+    rc_loss = []
+    kl_loss = []
+    bow_loss = []
     local_t = 0
     start_time = time.time()
-    loss_names = ["loss"]
+    loss_names = ["elbo_t", "rc_loss", "kl_loss", "bow_loss"]
     model.train()
 
     while True:
@@ -49,31 +57,36 @@ def train(model, train_loader, optimizer):
             break
         local_t += 1
         loss = model(*batch)
-        losses.append(loss)
-        loss.backward()
+        elbo_t.append(loss[0])
+        rc_loss.append(loss[1])
+        kl_loss.append(loss[2])
+        bow_loss.append(loss[3])
+        loss[0].backward(
+        )  # loss[0] = elbo_t = rc_loss + weight_kl * kl_loss + weight_bow * bow_loss
         optimizer.step()
 
         if local_t % (train_loader.num_batch // 10) == 0:
             print_loss("%.2f" %
                        (train_loader.ptr / float(train_loader.num_batch)),
-                       loss_names, [losses],
+                       loss_names, [elbo_t, rc_loss, kl_loss, bow_loss],
                        postfix='')
     # finish epoch!
     epoch_time = time.time() - start_time
-    print_loss("Epoch Done", loss_names, [losses],
+    print_loss("Epoch Done", loss_names, [elbo_t, rc_loss, kl_loss, bow_loss],
                "step time %.4f" % (epoch_time / train_loader.num_batch))
 
 
 def valid(model, valid_loader):
-    losses = []
+    elbo_t = []
     while True:
         batch = valid_loader.next_batch()
         if batch is None:
             break
         loss = model(*batch)
-        losses.append(loss)
+        elbo_t.append(loss[0])
 
-    print_loss("ELBO_VALID", ['losses valid'], [losses], "")
+    print_loss("Validation", ["elbo_t"], [elbo_t], "")
+    return torch.mean(torch.stack(elbo_t))
 
 
 def decode(model, data_loader):
@@ -95,11 +108,10 @@ def main(args):
     np.random.seed(seed + 1)
     torch.manual_seed(seed + 2)
 
-    # TODO: set device
     use_cuda = params.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    train_loader, valid_loader, test_loader, word2vec = get_dataset()
+    train_loader, valid_loader, test_loader, word2vec = get_dataset(device)
 
     if args.forward_only or args.resume:
         log_dir = os.path.join(params.log_dir, args.ckpt_dir)
@@ -108,13 +120,22 @@ def main(args):
         log_dir = os.path.join(params.log_dir, "run" + str(int(time.time())))
     os.makedirs(log_dir, exist_ok=True)
 
-    model = VRNN()
-    # TODO: learning rate with decay
-    optimizer = optim.Adam(model.parameters(), lr=params.init_lr)
+    model = VRNN().to(device)
+    if params.op == "adam":
+        optimizer = optim.Adam(model.parameters(),
+                               lr=params.init_lr,
+                               weight_decay=params.lr_decay)
+    elif params.op == "rmsprop":
+        optimizer = optim.RMSprop(model.parameters(),
+                                  lr=params.init_lr,
+                                  weight_decay=params.lr_decay)
+    else:
+        optimizer = optim.SGD(model.parameters(),
+                              lr=params.init_lr,
+                              weight_decay=params.lr_decay)
 
     if word2vec is not None and not args.forward_only:
         print("Load word2vec")
-        # TODO: trainable pretrained embedding
         model.embedding.from_pretrained(torch.from_numpy(word2vec),
                                         freeze=False)
 
@@ -132,25 +153,42 @@ def main(args):
         last_epoch = state['epoch']
 
     # Train and evaluate
-    # TODO: early stop
+    patience = params.max_epoch
+    dev_loss_threshold = np.inf
+    best_dev_loss = np.inf
     if not args.forward_only:
         for epoch in range(last_epoch + 1, params.max_epoch + 1):
-            print(">> Epoch %d with lr %f" % (epoch, params.init_lr))
+            print(">> Epoch %d" % (epoch))
+            for param_group in optimizer.param_groups:
+                print("Learning rate %f" % param_group['lr'])
+
             if train_loader.num_batch is None or train_loader.ptr >= train_loader.num_batch:
                 train_loader.epoch_init(params.batch_size, shuffle=True)
             train(model, train_loader, optimizer)
             valid_loader.epoch_init(params.batch_size, shuffle=False)
-            valid(model, valid_loader)
+            valid_loss = valid(model, valid_loader)
+            if valid_loss < best_dev_loss:
+                # increase patience when valid_loss is small enough
+                if valid_loss <= dev_loss_threshold * params.improve_threshold:
+                    patience = max(patience, epoch * params.patient_increase)
+                    dev_loss_threshold = valid_loss
 
-            if args.save_model:
-                print("Save the model at the end of each epoch.")
-                state = {
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }
-                torch.save(state,
-                           os.path.join(log_dir, "vrnn_" + str(epoch) + ".pt"))
+                # still save the best train model
+                if args.save_model:
+                    print("Save the model at the end of each epoch.")
+                    state = {
+                        'epoch': epoch,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    torch.save(
+                        state,
+                        os.path.join(log_dir, "vrnn_" + str(epoch) + ".pt"))
+                best_dev_loss = valid_loss
+
+            if params.early_stop and patience <= epoch:
+                print("Early stop due to run out of patience!!")
+                break
     # Inference only
     else:
         state = torch.load(checkpoint_path)

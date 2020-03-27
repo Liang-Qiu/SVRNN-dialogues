@@ -22,22 +22,22 @@ max_dialog_len = 10  # max number of turns in a dialog
 num_layer = 1  # number of context RNN layers
 
 # Optimization parameters
-op = "adam"
+op = "adam"  # adam, rmsprop, sgd
+max_epoch = 30  # max number of epoch of training
 grad_clip = 5.0  # gradient abs max cut
 init_w = 0.08  # uniform random from [-init_w, init_w]
 batch_size = 16  # mini-batch size
 init_lr = 0.001  # initial learning rate
-lr_hold = 1  # only used by SGD
-lr_decay = 0.6  # only used by SGD
+lr_decay = 0.6
 dropout = 0.2  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
 early_stop = True
-max_epoch = 5  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
-bow_loss_weight = 0.4  # weight of the bow_loss
+kl_loss_weight = 100000  # weight of the kl_loss
+bow_loss_weight = 0.01  # weight of the bow_loss
 with_label_loss = False  # semi-supervised or not
 with_BPR = True
 with_direct_transition = False  # direct prior transition prob
