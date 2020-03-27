@@ -3,12 +3,12 @@
 word2vec_path = None  # The path to word2vec. Can be None.
 data_dir = "data/data.pkl"  # Raw data directory.
 log_dir = "log"  # Experiment results directory.
-api_dir = "data/cambridge_data/api_cambridge.pkl"  # "data/api_simdial_weather.pkl"#"data/cambridge_data/api_cambridge.pkl"
+api_dir = "data/cambridge_data/api_cambridge.txt"  # "data/api_simdial_weather.pkl"#"data/cambridge_data/api_cambridge.pkl"
 rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.pkl"#"data/cambridge_data/rev_vocab.pkl"
 
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
-use_cuda = False
+use_cuda = True
 seed = 233
 max_vocab_cnt = 10000
 

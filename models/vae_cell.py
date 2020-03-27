@@ -18,6 +18,10 @@ class VAECell(nn.Module):
         self._state_is_tuple = state_is_tuple
         # temperature of gumbel_softmax
         self.tau = torch.tensor([5.0], requires_grad=True)
+
+        if params.use_cuda:
+            self.tau = self.tau.cuda()
+
         self.enc_mlp = MLP(params.encoding_cell_size * 2 +
                            params.state_cell_size, [400, 200],
                            dropout_rate=params.dropout)
@@ -60,7 +64,6 @@ class VAECell(nn.Module):
         enc_inputs = torch.cat(
             [h_prev, inputs],
             1)  # [batch, encoding_cell_size * 2 + state_cell_size]
-
         net1 = self.enc_mlp(enc_inputs, training=training)
         logits_z = self.enc_fc(net1)
         q_z = F.softmax(logits_z, dim=1)
@@ -136,8 +139,8 @@ class VAECell(nn.Module):
         # encode
         logits_z, q_z, log_q_z = self.encode(inputs, h_prev, training=training)
 
-        # print("logits_z")
-        # print(logits_z)
+        #print("logits_z")
+        #print(logits_z)
 
         # sample
         z_samples, logits_z_samples = gumbel_softmax(
