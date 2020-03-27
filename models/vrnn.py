@@ -73,6 +73,7 @@ class VRNN(nn.Module):
         sys_sent_embedding = torch.zeros(
             params.batch_size * params.max_dialog_len,
             params.encoding_cell_size)
+
         for i in range(usr_sent_embedding.shape[0]):
             if usr_sent_len[i] > 0:
                 usr_sent_embedding[i] = usr_sent_embeddings[i,
@@ -131,14 +132,14 @@ class VRNN(nn.Module):
             state = (h, c)
         for utt in range(params.max_dialog_len):
             print(utt)
-            print("prev_z")
-            print(prev_z)
+            #print("prev_z")
+            #print(prev_z)
 
             inputs = joint_embedding[:, utt, :]
-            print("input token")
-            print(usr_input_sent[:, utt, :])
-            print("input_embedding")
-            print(inputs)
+            #print("input token")
+            #print(usr_input_sent[:, utt, :])
+            #print("input_embedding")
+            #print(inputs)
 
             dec_input_emb = [
                 dec_input_embedding[0][:, utt, :, :],
@@ -149,13 +150,17 @@ class VRNN(nn.Module):
                 output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
 
+            #print(dec_seq_len[0].shape, dec_seq_len[1].shape)
+            #exit()
+
             elbo_t, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
                 inputs,
                 state,
                 dec_input_emb,
                 dec_seq_len,
                 output_token,
-                prev_z_t=prev_z)
+                prev_z_t=prev_z,
+                prev_embeddings = joint_embedding[:, :utt, :])
 
             shape = z_samples.size()
             _, ind = z_samples.max(dim=-1)
@@ -166,6 +171,8 @@ class VRNN(nn.Module):
             zts_onehot = (zts_onehot - z_samples).detach() + z_samples
             prev_z = zts_onehot
 
+            print("vrnn.py zts_onehot")
+            print(zts_onehot)
             losses.append(elbo_t)
             z_ts.append(zts_onehot)
             p_ts.append(p_z)

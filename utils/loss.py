@@ -21,6 +21,10 @@ def BPR_BOW_loss(output_tokens,
                  bow_logits2=None):
     dec_outs_1 = dec_outs_1.view(-1, params.max_vocab_cnt)
     labels_1 = output_tokens[0][:, 1:].reshape(-1)
+
+    #print("loss.py",output_tokens[0].shape)
+    #exit()
+
     label_mask_1 = torch.sign(labels_1)
     dec_outs_2 = dec_outs_2.view(-1, params.max_vocab_cnt)
     labels_2 = output_tokens[1][:, 1:].reshape(-1)
@@ -29,14 +33,19 @@ def BPR_BOW_loss(output_tokens,
     if params.word_weights is not None:
         weights = torch.tensor(params.word_weights, requires_grad=False)
         rc_loss_1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_1, labels_1) * label_mask_1
+            dec_outs_1, labels_1) #* label_mask_1
         rc_loss_2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_2, labels_2) * label_mask_2
+            dec_outs_2, labels_2) #* label_mask_2
     else:
         rc_loss_1 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_1, labels_1) * label_mask_1
+            dec_outs_1, labels_1) #* label_mask_1
+        rc_loss_1 = rc_loss_1 * label_mask_1.float()
         rc_loss_2 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_2, labels_2) * label_mask_2
+            dec_outs_2, labels_2) #* label_mask_2
+        rc_loss_2 = rc_loss_2 * label_mask_2.float()
+        #print(rc_loss_1.shape)
+        #print(label_mask_1.shape)
+        #exit()
 
     # KL_loss
     kl_tmp = (log_q_z - log_p_z) * q_z
@@ -74,9 +83,9 @@ def BPR_BOW_loss(output_tokens,
                 tile_bow_logits2, labels_2) * label_mask_2
         else:
             bow_loss1 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits1, labels_1) * label_mask_1
+                tile_bow_logits1, labels_1) #* label_mask_1
             bow_loss2 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits2, labels_2) * label_mask_2
+                tile_bow_logits2, labels_2) #* label_mask_2
         elbo_t = elbo_t + params.bow_loss_weight * (torch.sum(bow_loss1) +
                                                     torch.sum(bow_loss2))
     # elbo_t = torch.unsqueeze(elbo_t, 1)

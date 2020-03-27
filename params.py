@@ -3,14 +3,14 @@
 word2vec_path = None  # The path to word2vec. Can be None.
 data_dir = "data/data.pkl"  # Raw data directory.
 log_dir = "log"  # Experiment results directory.
-api_dir = "data/cambridge_data/api_cambridge.pkl"  # "data/api_simdial_weather.pkl"#"data/cambridge_data/api_cambridge.pkl"
+api_dir = "data/cambridge_data/api_cambridge.txt"  # "data/api_simdial_weather.pkl"#"data/cambridge_data/api_cambridge.pkl"
 rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.pkl"#"data/cambridge_data/rev_vocab.pkl"
 
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
 use_cuda = False
 seed = 233
-max_vocab_cnt = 10000
+max_vocab_cnt = 1000
 
 # Network general
 cell_type = "lstm"  # gru or lstm
@@ -33,11 +33,11 @@ dropout = 0.2  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
 early_stop = True
-max_epoch = 5  # max number of epoch of training
+max_epoch = 50  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
-bow_loss_weight = 0.4  # weight of the bow_loss
+bow_loss_weight = 0.1 # weight of the bow_loss
 with_label_loss = False  # semi-supervised or not
 with_BPR = True
 with_direct_transition = False  # direct prior transition prob
@@ -69,3 +69,7 @@ if with_word_weights:
 
 else:
     word_weights = None
+
+
+use_sentence_attention = True
+attention_type = "dot" #dot, general, concat

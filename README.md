@@ -23,3 +23,5 @@ make decode
 ```bash
 make interpret
 ```
+
+![Image 1](imgs/dialog_attn.PNG)
