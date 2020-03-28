@@ -97,7 +97,13 @@ class LongDataLoader(object):
 
 
 class SWDADataLoader(LongDataLoader):
-    def __init__(self, name, data, max_utt_len, max_dialog_len, labeled=False):
+    def __init__(self,
+                 name,
+                 data,
+                 max_utt_len,
+                 max_dialog_len,
+                 labeled=False,
+                 device='cpu'):
         # assert len(data) == len(meta_data)
         self.name = name
         self.data = data
@@ -107,6 +113,7 @@ class SWDADataLoader(LongDataLoader):
         self.max_utt_size = max_utt_len
         self.max_dialog_size = max_dialog_len
         self.labeled = labeled
+        self.device = device
         print("Max dialog len %d and min dialog len %d and avg len %f" %
               (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
         # self.indexes = list(np.argsort(all_lens))
@@ -169,5 +176,5 @@ class SWDADataLoader(LongDataLoader):
 
         # initial_prev_zt = np.ones()
 
-        return torch.tensor(usr_input_sent), torch.tensor(sys_input_sent), torch.tensor(dialog_lens), \
-               torch.tensor(usr_full_mask), torch.tensor(sys_full_mask)
+        return torch.tensor(usr_input_sent).to(self.device), torch.tensor(sys_input_sent).to(self.device), torch.tensor(dialog_lens).to(self.device), \
+               torch.tensor(usr_full_mask).to(self.device), torch.tensor(sys_full_mask).to(self.device)

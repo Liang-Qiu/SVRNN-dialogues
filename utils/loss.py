@@ -32,24 +32,21 @@ def BPR_BOW_loss(output_tokens,
 
     if params.word_weights is not None:
         weights = torch.tensor(params.word_weights, requires_grad=False)
-        rc_loss_1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_1, labels_1) #* label_mask_1
-        rc_loss_2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-            dec_outs_2, labels_2) #* label_mask_2
+        rc_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
+            dec_outs_1, labels_1) * label_mask_1.float()
+        rc_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
+            dec_outs_2, labels_2) * label_mask_2.float()
     else:
-        rc_loss_1 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_1, labels_1) #* label_mask_1
-        rc_loss_1 = rc_loss_1 * label_mask_1.float()
-        rc_loss_2 = nn.CrossEntropyLoss(reduction='none')(
-            dec_outs_2, labels_2) #* label_mask_2
-        rc_loss_2 = rc_loss_2 * label_mask_2.float()
-        #print(rc_loss_1.shape)
-        #print(label_mask_1.shape)
-        #exit()
+        rc_loss1 = nn.CrossEntropyLoss(reduction='none')(
+            dec_outs_1, labels_1) * label_mask_1.float()
+        rc_loss2 = nn.CrossEntropyLoss(reduction='none')(
+            dec_outs_2, labels_2) * label_mask_2.float()
+    rc_loss_1 = torch.sum(rc_loss1)
+    rc_loss_2 = torch.sum(rc_loss2)
 
     # KL_loss
-    kl_tmp = (log_q_z - log_p_z) * q_z
-    kl_tmp =  1000 * torch.sum(kl_tmp)
+    kl_loss = (log_q_z - log_p_z) * q_z
+    kl_loss = torch.sum(kl_loss)
 
     if params.with_BPR:
         q_z_prime = torch.mean(q_z, dim=0)
@@ -58,15 +55,15 @@ def BPR_BOW_loss(output_tokens,
         p_z_prime = torch.mean(p_z, dim=0)
         log_p_z_prime = torch.log(p_z_prime + 1e-20)
 
-        kl_bpr = (log_q_z_prime - log_p_z_prime) * q_z_prime
-        kl_bpr = 1000 * torch.div(torch.sum(kl_bpr), params.batch_size)
+        kl_loss = (log_q_z_prime - log_p_z_prime) * q_z_prime
+        # TODO: BPR?
+        kl_loss = params.kl_loss_weight * torch.sum(kl_loss)
+        # kl_loss = torch.div(torch.sum(kl_loss), params.batch_size)
 
-    if not params.with_BPR:
-        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) + kl_tmp
-    else:
-        elbo_t = torch.sum(rc_loss_1) + torch.sum(rc_loss_2) + kl_bpr
+    elbo_t = rc_loss_1 + rc_loss_2 + kl_loss
 
     # BOW_loss
+    bow_loss_1 = bow_loss_2 = 0
     if params.with_BOW:
         tile_bow_logits1 = (torch.unsqueeze(
             bow_logits1, 1).repeat(1, params.max_utt_len - 1, 1)).view(
@@ -78,19 +75,21 @@ def BPR_BOW_loss(output_tokens,
         if params.word_weights is not None:
             weights = torch.tensor(params.word_weights, requires_grad=False)
             bow_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-                tile_bow_logits1, labels_1) * label_mask_1
+                tile_bow_logits1, labels_1) * label_mask_1.float()
             bow_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
-                tile_bow_logits2, labels_2) * label_mask_2
+                tile_bow_logits2, labels_2) * label_mask_2.float()
         else:
             bow_loss1 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits1, labels_1) #* label_mask_1
+                tile_bow_logits1, labels_1) * label_mask_1.float()
             bow_loss2 = nn.CrossEntropyLoss(reduction='none')(
-                tile_bow_logits2, labels_2) #* label_mask_2
-        elbo_t = elbo_t + params.bow_loss_weight * (torch.sum(bow_loss1) +
-                                                    torch.sum(bow_loss2))
-    # elbo_t = torch.unsqueeze(elbo_t, 1)
+                tile_bow_logits2, labels_2) * label_mask_2.float()
 
-    return elbo_t
+        bow_loss_1 = params.bow_loss_weight * torch.sum(bow_loss1)
+        bow_loss_2 = params.bow_loss_weight * torch.sum(bow_loss2)
+
+        elbo_t = elbo_t + bow_loss_1 + bow_loss_2
+
+    return elbo_t, rc_loss_1 + rc_loss_2, kl_loss, bow_loss_1 + bow_loss_2
 
 
 def print_loss(prefix, loss_names, losses, postfix):

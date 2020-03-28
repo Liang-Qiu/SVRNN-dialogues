@@ -8,7 +8,7 @@ rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.p
 
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
-use_cuda = False
+use_cuda = True
 seed = 233
 max_vocab_cnt = 10000
 
@@ -20,24 +20,26 @@ embed_size = 300  # word embedding size
 max_utt_len = 40  # max number of words in an utterance
 max_dialog_len = 10  # max number of turns in a dialog
 num_layer = 1  # number of context RNN layers
+use_sentence_attention = True
+attention_type = "dot"  #dot, general, concat
 
 # Optimization parameters
-op = "adam"
+op = "adam"  # adam, rmsprop, sgd
+max_epoch = 60  # max number of epoch of training
 grad_clip = 5.0  # gradient abs max cut
 init_w = 0.08  # uniform random from [-init_w, init_w]
 batch_size = 16  # mini-batch size
 init_lr = 0.001  # initial learning rate
-lr_hold = 1  # only used by SGD
-lr_decay = 0.6  # only used by SGD
+lr_decay = 0.6
 dropout = 0.2  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
 early_stop = True
-max_epoch = 50  # max number of epoch of training
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
-bow_loss_weight = 0.01 # weight of the bow_loss
+kl_loss_weight = 100000  # weight of the kl_loss
+bow_loss_weight = 0.01  # weight of the bow_loss
 with_label_loss = False  # semi-supervised or not
 with_BPR = True
 with_direct_transition = False  # direct prior transition prob
@@ -69,7 +71,3 @@ if with_word_weights:
 
 else:
     word_weights = None
-
-
-use_sentence_attention = True
-attention_type = "dot" #dot, general, concat

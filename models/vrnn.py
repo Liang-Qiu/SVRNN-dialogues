@@ -37,14 +37,21 @@ class VRNN(nn.Module):
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
 
+        # TODO: is this necessary?
+        if params.use_cuda and torch.cuda.is_available():
+            self.vae_cell = self.vae_cell.cuda()
+
     def forward(self,
                 usr_input_sent,
                 sys_input_sent,
                 dialog_length_mask,
                 usr_input_mask,
                 sys_input_mask,
-                interpret=False):
+                training=True):
         ########################## sentence embedding  ##################
+        # print(usr_input_sent)
+        # print(sys_input_sent)
+
         usr_input_embedding = self.embedding(
             usr_input_sent)  # (16, 10, 40, 300)
         usr_input_embedding = usr_input_embedding.view(
@@ -91,12 +98,13 @@ class VRNN(nn.Module):
             -1, params.max_dialog_len,
             params.encoding_cell_size)  # (16, 10, 400)
 
-        # TODO: no dropout during decoding
         if params.dropout > 0:
             usr_sent_embedding = F.dropout(usr_sent_embedding,
-                                           p=params.dropout)
+                                           p=params.dropout,
+                                           training=training)
             sys_sent_embedding = F.dropout(sys_sent_embedding,
-                                           p=params.dropout)
+                                           p=params.dropout,
+                                           training=training)
 
         joint_embedding = torch.cat(
             [usr_sent_embedding, sys_sent_embedding],
@@ -120,26 +128,34 @@ class VRNN(nn.Module):
         output_tokens = [usr_input_sent, sys_input_sent]
 
         prev_z = torch.ones(params.batch_size, params.n_state)
-        losses = []
+        elbo_ts = []
+        rc_losses = []
+        kl_losses = []
+        bow_losses = []
         z_ts = []
         p_ts = []
         bow_logits_1 = []
         bow_logits_2 = []
         if params.cell_type == "gru":
             state = torch.zeros(params.batch_size, params.state_cell_size)
+            if params.use_cuda and torch.cuda.is_available():
+                state = state.cuda()
         else:
             h = c = torch.zeros(params.batch_size, params.state_cell_size)
+            if params.use_cuda and torch.cuda.is_available():
+                h = h.cuda()
+                c = c.cuda()
             state = (h, c)
         for utt in range(params.max_dialog_len):
-            print(utt)
-            #print("prev_z")
-            #print(prev_z)
+            # print(utt)
+            # print("prev_z")
+            # print(prev_z)
 
             inputs = joint_embedding[:, utt, :]
-            #print("input token")
-            #print(usr_input_sent[:, utt, :])
-            #print("input_embedding")
-            #print(inputs)
+            # print("input token")
+            # print(usr_input_sent[:, utt, :])
+            # print("input_embedding")
+            # print(inputs)
 
             dec_input_emb = [
                 dec_input_embedding[0][:, utt, :, :],
@@ -150,39 +166,52 @@ class VRNN(nn.Module):
                 output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
 
-            #print(dec_seq_len[0].shape, dec_seq_len[1].shape)
-            #exit()
+            # print(inputs.is_cuda)
+            # print(state[0].is_cuda)
+            # print(dec_input_emb[0].is_cuda)
+            # print(dec_seq_len[0].is_cuda)
+            # print(output_token[0].is_cuda)
 
-            elbo_t, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
+            losses, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
                 inputs,
                 state,
                 dec_input_emb,
                 dec_seq_len,
                 output_token,
                 prev_z_t=prev_z,
-                prev_embeddings = joint_embedding[:, :utt, :])
+                prev_embeddings=joint_embedding[:, :utt, :],
+                training=training)
 
             shape = z_samples.size()
             _, ind = z_samples.max(dim=-1)
             zts_onehot = torch.zeros_like(z_samples).view(-1, shape[-1])
+            if params.use_cuda and torch.cuda.is_available():
+                zts_onehot = zts_onehot.cuda()
             zts_onehot.scatter_(1, ind.view(-1, 1), 1)
             zts_onehot = zts_onehot.view(*shape)
             # stop gradient
             zts_onehot = (zts_onehot - z_samples).detach() + z_samples
             prev_z = zts_onehot
+            # check whether have converged to local minima
 
-            print("vrnn.py zts_onehot")
-            print(zts_onehot)
-
-            losses.append(elbo_t)
+            elbo_ts.append(losses[0])
+            rc_losses.append(losses[1])
+            kl_losses.append(losses[2])
+            bow_losses.append(losses[3])
             z_ts.append(zts_onehot)
             p_ts.append(p_z)
             bow_logits_1.append(bow_logits1)
             bow_logits_2.append(bow_logits2)
 
-        losses = torch.stack(losses)
-        loss_avg = torch.sum(losses) / (torch.sum(usr_input_mask) +
-                                        torch.sum(sys_input_mask))
+        mask_len = (torch.sum(usr_input_mask) + torch.sum(sys_input_mask))
+        elbo_ts = torch.stack(elbo_ts)
+        elbo_t_avg = torch.sum(elbo_ts) / mask_len
+        rc_losses = torch.stack(rc_losses)
+        rc_loss_avg = torch.sum(rc_losses) / mask_len
+        kl_losses = torch.stack(kl_losses)
+        kl_loss_avg = torch.sum(kl_losses) / mask_len
+        bow_losses = torch.stack(bow_losses)
+        bow_loss_avg = torch.sum(bow_losses) / mask_len
 
         z_ts = torch.stack(z_ts)
         p_ts = torch.stack(p_ts)
@@ -194,8 +223,8 @@ class VRNN(nn.Module):
         bow_logits_1 = bow_logits_1.permute(1, 0, 2).cpu().detach().numpy()
         bow_logits_2 = bow_logits_2.permute(1, 0, 2).cpu().detach().numpy()
 
-        if not interpret:
-            return loss_avg
+        if training:
+            return elbo_t_avg, rc_loss_avg, kl_loss_avg, bow_loss_avg
         else:
             return usr_input_sent.cpu().detach().numpy(), sys_input_sent.cpu(
             ).detach().numpy(), z_ts, p_ts, bow_logits_1, bow_logits_2

@@ -96,10 +96,12 @@ def main(args):
     with open(params.api_dir, "rb") as fh:
         api2 = pkl.load(fh, encoding='latin1')
 
-    with open(os.path.join(args.log_dir, "result.pkl"), "rb") as fh:
+    with open(os.path.join(params.log_dir, args.ckpt_dir, "result.pkl"),
+              "rb") as fh:
         results = pkl.load(fh)
 
-    state = torch.load(os.path.join(args.log_dir, "vrnn_5.pt"))
+    state = torch.load(
+        os.path.join(params.log_dir, args.ckpt_dir, args.ckpt_name))
     # pp(state['state_dict'])
 
     converted_labels = []
@@ -224,10 +226,12 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--log_dir',
-                        default='log/run1585003537',
+    parser.add_argument('--ckpt_dir',
                         type=str,
-                        help='Path to the saved result')
+                        help='Directory of the saved checkpoint')
+    parser.add_argument('--ckpt_name',
+                        type=str,
+                        help='Name of the saved model checkpoint')
 
     parser.add_argument('--with_start', default=True, type=bool)
 
