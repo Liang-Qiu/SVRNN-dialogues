@@ -18,10 +18,7 @@ class VAECell(nn.Module):
 
         self._state_is_tuple = state_is_tuple
         # temperature of gumbel_softmax
-        self.tau = torch.tensor([5.0], requires_grad=True)
-
-        if params.use_cuda and torch.cuda.is_available():
-            self.tau = self.tau.cuda()
+        self.tau = nn.Parameter(torch.tensor([5.0]))
 
         self.enc_mlp = MLP(params.encoding_cell_size * 2 +
                            params.state_cell_size, [400, 200],

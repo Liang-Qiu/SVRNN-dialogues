@@ -26,7 +26,8 @@ class Attn(nn.Module):
         this_batch_size = encoder_outputs.size(0)
 
         # Create variable to store attention energies
-        attn_energies = torch.zeros(this_batch_size, max_len)  # B x S
+        attn_energies = torch.zeros(this_batch_size,
+                                    max_len)  # B x S
 
         if params.use_cuda and torch.cuda.is_available():
             attn_energies = attn_energies.cuda()

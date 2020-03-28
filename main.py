@@ -122,7 +122,6 @@ def main(args):
     os.makedirs(log_dir, exist_ok=True)
 
     model = VRNN().to(device)
-    print(next(model.parameters()).device)
     if params.op == "adam":
         optimizer = optim.Adam(model.parameters(),
                                lr=params.init_lr,

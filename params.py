@@ -8,7 +8,7 @@ rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.p
 
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
-use_cuda = True
+use_cuda = False
 seed = 233
 max_vocab_cnt = 10000
 

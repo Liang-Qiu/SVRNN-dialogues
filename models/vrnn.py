@@ -37,10 +37,6 @@ class VRNN(nn.Module):
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
 
-        # TODO: is this necessary?
-        if params.use_cuda and torch.cuda.is_available():
-            self.vae_cell = self.vae_cell.cuda()
-
     def forward(self,
                 usr_input_sent,
                 sys_input_sent,
@@ -80,6 +76,9 @@ class VRNN(nn.Module):
         sys_sent_embedding = torch.zeros(
             params.batch_size * params.max_dialog_len,
             params.encoding_cell_size)
+        if params.use_cuda and torch.cuda.is_available():
+            usr_sent_embedding = usr_sent_embedding.cuda()
+            sys_sent_embedding = sys_sent_embedding.cuda()
 
         for i in range(usr_sent_embedding.shape[0]):
             if usr_sent_len[i] > 0:
@@ -165,12 +164,6 @@ class VRNN(nn.Module):
             output_token = [
                 output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
-
-            # print(inputs.is_cuda)
-            # print(state[0].is_cuda)
-            # print(dec_input_emb[0].is_cuda)
-            # print(dec_seq_len[0].is_cuda)
-            # print(output_token[0].is_cuda)
 
             losses, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
                 inputs,
