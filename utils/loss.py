@@ -28,6 +28,8 @@ def BPR_BOW_loss(output_tokens,
 
     if params.word_weights is not None:
         weights = torch.tensor(params.word_weights, requires_grad=False)
+        if params.use_cuda and torch.cuda.is_available():
+            weights = weights.cuda()
         rc_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
             dec_outs_1, labels_1) * label_mask_1.float()
         rc_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
@@ -69,7 +71,6 @@ def BPR_BOW_loss(output_tokens,
             1, params.max_utt_len - 1, 1)).view(-1, params.max_vocab_cnt)
 
         if params.word_weights is not None:
-            weights = torch.tensor(params.word_weights, requires_grad=False)
             bow_loss1 = nn.CrossEntropyLoss(weight=weights, reduction='none')(
                 tile_bow_logits1, labels_1) * label_mask_1.float()
             bow_loss2 = nn.CrossEntropyLoss(weight=weights, reduction='none')(

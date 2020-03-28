@@ -57,10 +57,11 @@ def train(model, train_loader, optimizer):
             break
         local_t += 1
         loss = model(*batch)
-        elbo_t.append(loss[0])
-        rc_loss.append(loss[1])
-        kl_loss.append(loss[2])
-        bow_loss.append(loss[3])
+        # use .data to free the loss Variable
+        elbo_t.append(loss[0].data)
+        rc_loss.append(loss[1].data)
+        kl_loss.append(loss[2].data)
+        bow_loss.append(loss[3].data)
         loss[0].backward(
         )  # loss[0] = elbo_t = rc_loss + weight_kl * kl_loss + weight_bow * bow_loss
         optimizer.step()
@@ -83,9 +84,9 @@ def valid(model, valid_loader):
         if batch is None:
             break
         loss = model(*batch)
-        elbo_t.append(loss[0])
+        elbo_t.append(loss[0].data)
 
-    print_loss("Validation", ["elbo_t"], [elbo_t], "")
+    print_loss("Valid", ["elbo_t"], [elbo_t], "")
     return torch.mean(torch.stack(elbo_t))
 
 
@@ -165,30 +166,31 @@ def main(args):
             if train_loader.num_batch is None or train_loader.ptr >= train_loader.num_batch:
                 train_loader.epoch_init(params.batch_size, shuffle=True)
             train(model, train_loader, optimizer)
-            # valid_loader.epoch_init(params.batch_size, shuffle=False)
-            # valid_loss = valid(model, valid_loader)
-            # if valid_loss < best_dev_loss:
-            #     # increase patience when valid_loss is small enough
-            #     if valid_loss <= dev_loss_threshold * params.improve_threshold:
-            #         patience = max(patience, epoch * params.patient_increase)
-            #         dev_loss_threshold = valid_loss
-            #
-            #     # still save the best train model
-            if args.save_model:
-                print("Save the model at the end of each epoch.")
-                state = {
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }
-                torch.save(
-                    state,
-                    os.path.join(log_dir, "vrnn_" + str(epoch) + ".pt"))
-            #     best_dev_loss = valid_loss
-            #
-            # if params.early_stop and patience <= epoch:
-            #     print("Early stop due to run out of patience!!")
-            #     break
+            print("Best valid loss so far %f" % best_dev_loss)
+            valid_loader.epoch_init(params.batch_size, shuffle=False)
+            valid_loss = valid(model, valid_loader)
+            if valid_loss < best_dev_loss:
+                # increase patience when valid_loss is small enough
+                if valid_loss <= dev_loss_threshold * params.improve_threshold:
+                    patience = max(patience, epoch * params.patient_increase)
+                    dev_loss_threshold = valid_loss
+
+                # still save the best train model
+                if args.save_model:
+                    print("Update the best valid loss and save the model.")
+                    state = {
+                        'epoch': epoch,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    torch.save(
+                        state,
+                        os.path.join(log_dir, "vrnn_" + str(epoch) + ".pt"))
+                    best_dev_loss = valid_loss
+
+            if params.early_stop and patience <= epoch:
+                print("Early stop due to run out of patience!!")
+                break
     # Inference only
     else:
         state = torch.load(checkpoint_path)

@@ -2,7 +2,6 @@ import torch
 from torch_struct import DependencyCRF, LinearChainCRF
 import matplotlib.pyplot as plt
 
-
 def show(x):
     plt.imshow(x.detach())
 
@@ -16,3 +15,5 @@ show(dist.log_potentials[0])
 
 # Compute marginals
 show(dist.marginals[0])
+
+

@@ -25,3 +25,5 @@ python main.py --forward_only True --ckpt_dir run1585003537 --ckpt_name vrnn_5.p
 ```bash
 python interpretion.py --ckpt_dir run1585003537 --ckpt_name vrnn_5.pt
 ```
+
+![Image 1](imgs/dialog_attn.PNG)

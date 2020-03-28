@@ -37,9 +37,6 @@ class VRNN(nn.Module):
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
 
-        if params.use_cuda:
-            self.vae_cell = self.vae_cell.cuda()
-
     def forward(self,
                 usr_input_sent,
                 sys_input_sent,
@@ -79,8 +76,7 @@ class VRNN(nn.Module):
         sys_sent_embedding = torch.zeros(
             params.batch_size * params.max_dialog_len,
             params.encoding_cell_size)
-
-        if params.use_cuda:
+        if params.use_cuda and torch.cuda.is_available():
             usr_sent_embedding = usr_sent_embedding.cuda()
             sys_sent_embedding = sys_sent_embedding.cuda()
 
@@ -141,11 +137,11 @@ class VRNN(nn.Module):
         bow_logits_2 = []
         if params.cell_type == "gru":
             state = torch.zeros(params.batch_size, params.state_cell_size)
-            if params.use_cuda:
+            if params.use_cuda and torch.cuda.is_available():
                 state = state.cuda()
         else:
             h = c = torch.zeros(params.batch_size, params.state_cell_size)
-            if params.use_cuda:
+            if params.use_cuda and torch.cuda.is_available():
                 h = h.cuda()
                 c = c.cuda()
             state = (h, c)
@@ -169,12 +165,6 @@ class VRNN(nn.Module):
                 output_tokens[0][:, utt, :], output_tokens[1][:, utt, :]
             ]
 
-            # print(inputs.is_cuda)
-            # print(state[0].is_cuda)
-            # print(dec_input_emb[0].is_cuda)
-            # print(dec_seq_len[0].is_cuda)
-            # print(output_token[0].is_cuda)
-
             losses, z_samples, state, p_z, bow_logits1, bow_logits2 = self.vae_cell(
                 inputs,
                 state,
@@ -182,12 +172,13 @@ class VRNN(nn.Module):
                 dec_seq_len,
                 output_token,
                 prev_z_t=prev_z,
+                prev_embeddings=joint_embedding[:, :utt, :],
                 training=training)
 
             shape = z_samples.size()
             _, ind = z_samples.max(dim=-1)
             zts_onehot = torch.zeros_like(z_samples).view(-1, shape[-1])
-            if params.use_cuda:
+            if params.use_cuda and torch.cuda.is_available():
                 zts_onehot = zts_onehot.cuda()
             zts_onehot.scatter_(1, ind.view(-1, 1), 1)
             zts_onehot = zts_onehot.view(*shape)

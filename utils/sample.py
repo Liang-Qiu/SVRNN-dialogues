@@ -14,7 +14,7 @@ def sample_gumbel(shape, eps=1e-20, device='cpu'):
 
 def gumbel_softmax_sample(logits, temperature):
     """ Draw a sample from the Gumbel-Softmax distribution"""
-    device = "cuda" if params.use_cuda else "cpu"
+    device = "cuda" if params.use_cuda and torch.cuda.is_available() else "cpu"
     y = logits + sample_gumbel(logits.size(), 1e-20, device)
     return F.softmax(y / temperature, dim=1), y / temperature
 
@@ -36,7 +36,7 @@ def gumbel_softmax(logits, temperature, hard=False):
         _, ind = y.max(dim=-1)
         y_hard = torch.zeros_like(y).view(-1, shape[-1])
         y_hard.scatter_(1, ind.view(-1, 1), 1)
-        if params.use_cuda:
+        if params.use_cuda and torch.cuda.is_available():
             y_hard = y_hard.cuda()
         y_hard = y_hard.view(*shape)
         y = (y_hard - y).detach() + y

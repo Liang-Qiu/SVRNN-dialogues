@@ -8,7 +8,7 @@ rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.p
 
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
 temperature = 0.5  # temperature for gumbel softmax
-use_cuda = True
+use_cuda = False
 seed = 233
 max_vocab_cnt = 10000
 
@@ -20,6 +20,8 @@ embed_size = 300  # word embedding size
 max_utt_len = 40  # max number of words in an utterance
 max_dialog_len = 10  # max number of turns in a dialog
 num_layer = 1  # number of context RNN layers
+use_sentence_attention = True
+attention_type = "dot"  #dot, general, concat
 
 # Optimization parameters
 op = "adam"  # adam, rmsprop, sgd
