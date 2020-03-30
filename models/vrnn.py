@@ -9,7 +9,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-import sys
 sys.path.append("..")
 import params
 from .vae_cell import VAECell

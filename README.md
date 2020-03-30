@@ -2,16 +2,27 @@
 
 All configuration is in `params.py`. You should change `use_cuda=True` if you want to use GPU.
 
-## Install
+## Install Requirements
 
 ```bash
 make install
 ```
 
+## Dataset
+
+First download the Ubuntu Chat Corpus from [here](https://daviduthus.org/UCC/).
+Then generate samples from the corpus by running
+
+```bash
+make dataset data_path=path/to/your/ubuntu/corpus
+```
+
+If you want to use GloVe, download it [here](https://nlp.stanford.edu/projects/glove/).
+
 ## Train  
 
 ```bash
-make train
+python main.py
 ```
 
 ## Decode
@@ -25,5 +36,7 @@ python main.py --forward_only True --ckpt_dir run1585003537 --ckpt_name vrnn_5.p
 ```bash
 python interpretion.py --ckpt_dir run1585003537 --ckpt_name vrnn_5.pt
 ```
+
+## Model Architecture
 
 ![Image 1](imgs/dialog_attn.PNG)

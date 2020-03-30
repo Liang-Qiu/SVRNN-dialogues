@@ -10,3 +10,4 @@ torchvision==0.4.2
 yapf==0.29.0
 gensim==3.8.1
 beeprint==2.4.10
+git+https://github.com/harvardnlp/pytorch-struct

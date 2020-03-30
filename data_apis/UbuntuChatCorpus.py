@@ -1,84 +1,106 @@
 import glob
-import json
+import sys
 import time
 from random import shuffle
 from threading import Thread
 import queue
+
+import json
 import torch
-from graph_matching.datasets.vocab import PAD_TOKEN, UNKNOWN_TOKEN, DECODING_START, DECODING_END
+
+sys.path.append("..")
+import params
+from .vocab import PAD_TOKEN, UNKNOWN_TOKEN, DECODING_START, DECODING_END
 
 
 class Batch(object):
-    def __init__(self, examples, config, vocab, struct_dist):
+    def __init__(self, examples, vocab, struct_dist, device="cpu"):
 
-        self.config = config
+        # branch_batch_size = config['graph_structure_net']['branch_batch_size']
+        # sen_batch_size = config['graph_structure_net']['sen_batch_size']
+        # max_utt_len = params.max_utt_len
+        # # max_dec_steps = config['graph_structure_net']['max_dec_steps']
+        # sen_hidden_dim = config['graph_structure_net']['sen_hidden_dim']
 
-        branch_batch_size = config['graph_structure_net']['branch_batch_size']
-        sen_batch_size = config['graph_structure_net']['sen_batch_size']
-        max_enc_steps = config['graph_structure_net']['max_enc_steps']
-        max_dec_steps = config['graph_structure_net']['max_dec_steps']
-        sen_hidden_dim = config['graph_structure_net']['sen_hidden_dim']
-
-        self.enc_batch = torch.zeros(branch_batch_size,
-                                     sen_batch_size,
-                                     max_enc_steps,
-                                     dtype=torch.int64)
-        self.enc_lens = torch.zeros(branch_batch_size,
-                                    sen_batch_size,
-                                    dtype=torch.int32)
+        self.enc_batch = torch.zeros(params.branch_batch_size,
+                                     params.sen_batch_size,
+                                     params.max_enc_steps,
+                                     dtype=torch.int64,
+                                     device=device)
+        self.enc_lens = torch.zeros(params.branch_batch_size,
+                                    params.sen_batch_size,
+                                    dtype=torch.int32,
+                                    device=device)
         self.attn_mask = -1e10 * torch.ones(
-            branch_batch_size,
-            sen_batch_size,
-            max_enc_steps,
-            dtype=torch.float32)  # attention mask batch
-        self.branch_lens_mask = torch.zeros(branch_batch_size,
-                                            sen_batch_size,
-                                            sen_batch_size,
-                                            dtype=torch.float32)
+            params.branch_batch_size,
+            params.sen_batch_size,
+            params.max_enc_steps,
+            dtype=torch.float32,
+            device=device)  # attention mask batch
+        self.branch_lens_mask = torch.zeros(params.branch_batch_size,
+                                            params.sen_batch_size,
+                                            params.sen_batch_size,
+                                            dtype=torch.float32,
+                                            device=device)
 
-        self.dec_batch = torch.zeros(branch_batch_size,
-                                     max_dec_steps,
-                                     dtype=torch.int64)  # decoder input
+        self.dec_batch = torch.zeros(params.branch_batch_size,
+                                     params.max_dec_steps,
+                                     dtype=torch.int64,
+                                     device=device)  # decoder input
         self.target_batch = torch.zeros(
-            branch_batch_size, max_dec_steps,
-            dtype=torch.int32)  # target sequence index batch
-        self.padding_mark = torch.zeros(
-            branch_batch_size, max_dec_steps,
-            dtype=torch.float32)  # target mask batch
-        # self.tgt_batch_len = torch.zeros(config.branch_batch_size, dtype=torch.int32)      # target batch length
+            params.branch_batch_size,
+            params.max_dec_steps,
+            dtype=torch.int32,
+            device=device)  # target sequence index batch
+        self.padding_mask = torch.zeros(params.branch_batch_size,
+                                        params.max_dec_steps,
+                                        dtype=torch.float32,
+                                        device=device)  # target mask batch
+        # self.tgt_batch_len = torch.zeros(config.branch_batch_size, dtype=torch.int32,device=device)      # target batch length
 
-        self.state_matrix = torch.zeros(branch_batch_size,
-                                        sen_batch_size,
-                                        sen_batch_size,
-                                        dtype=torch.int64)
-        self.struct_conv = torch.zeros(branch_batch_size,
-                                       sen_batch_size,
-                                       sen_batch_size,
-                                       dtype=torch.int64)
-        self.struct_dist = torch.zeros(branch_batch_size,
-                                       sen_batch_size,
-                                       sen_batch_size,
-                                       dtype=torch.int64)
+        # use state_matrix to look up sentence embedding state
+        self.state_matrix = torch.zeros(params.branch_batch_size,
+                                        params.sen_batch_size,
+                                        params.sen_batch_size,
+                                        dtype=torch.int64,
+                                        device=device)
+        self.struct_conv = torch.zeros(params.branch_batch_size,
+                                       params.sen_batch_size,
+                                       params.sen_batch_size,
+                                       dtype=torch.int64,
+                                       device=device)
+        self.struct_dist = torch.zeros(params.branch_batch_size,
+                                       params.sen_batch_size,
+                                       params.sen_batch_size,
+                                       dtype=torch.int64,
+                                       device=device)
 
-        self.relate_user = torch.zeros(branch_batch_size,
-                                       sen_batch_size,
-                                       sen_batch_size,
-                                       dtype=torch.int64)
+        self.relate_user = torch.zeros(params.branch_batch_size,
+                                       params.sen_batch_size,
+                                       params.sen_batch_size,
+                                       dtype=torch.int64,
+                                       device=device)
 
-        self.mask_emb = torch.zeros(branch_batch_size,
-                                    sen_batch_size,
-                                    sen_batch_size,
-                                    sen_hidden_dim * 2,
-                                    dtype=torch.float32)
-        self.mask_user = torch.zeros(branch_batch_size,
-                                     sen_batch_size,
-                                     sen_batch_size,
-                                     sen_hidden_dim * 2,
-                                     dtype=torch.float32)
-        mask_tool = torch.ones(sen_hidden_dim * 2, dtype=torch.float32)
+        self.mask_emb = torch.zeros(params.branch_batch_size,
+                                    params.sen_batch_size,
+                                    params.sen_batch_size,
+                                    params.sen_hidden_dim * 2,
+                                    dtype=torch.float32,
+                                    device=device)
+        self.mask_user = torch.zeros(params.branch_batch_size,
+                                     params.sen_batch_size,
+                                     params.sen_batch_size,
+                                     params.sen_hidden_dim * 2,
+                                     dtype=torch.float32,
+                                     device=device)
+        mask_tool = torch.ones(params.sen_hidden_dim * 2,
+                               dtype=torch.float32,
+                               device=device)
 
         # self.tgt_index = torch.zeros(config.branch_batch_size, config.sen_batch_size, dtype=torch.int32)
-        self.tgt_index = torch.zeros(branch_batch_size, dtype=torch.int64)
+        self.tgt_index = torch.zeros(params.branch_batch_size,
+                                     dtype=torch.int64,
+                                     device=device)
 
         self.context = []
         self.response = []
@@ -98,7 +120,7 @@ class Batch(object):
                 if enc_len != 0:
                     # initialization of state_matrix
                     self.state_matrix[i][enc_idx][
-                        enc_idx] = sen_batch_size * i + enc_idx + 1
+                        enc_idx] = params.sen_batch_size * i + enc_idx + 1
                 for j in range(enc_len):
                     self.attn_mask[i][enc_idx][j] = 0
 
@@ -125,18 +147,18 @@ class Batch(object):
 
             # decoder padding
             for j in range(ex.dec_len):
-                self.padding_mark[i][j] = 1
+                self.padding_mask[i][j] = 1
 
             # response idx
-            self.tgt_index[i] = ex.tgt_idx + i * sen_batch_size
+            self.tgt_index[i] = ex.tgt_idx + i * params.sen_batch_size
 
-            # TODO: add prediction
             self.struct_dist[i, :, :] = 0
 
             self.context.append(ex.original_context)
             self.response.append(ex.original_response)
 
-        self.enc_lens = self.enc_lens.view(branch_batch_size * sen_batch_size)
+        self.enc_lens = self.enc_lens.view(params.branch_batch_size *
+                                           params.sen_batch_size)
         # self.enc_lens[:] = enc_lens_mid
 
 
@@ -145,30 +167,23 @@ class Batcher(object):
     """
     BATCH_QUEUE_MAX = 5
 
-    def __init__(self, data_path, vocab, config):
-        """Constructor.
-        
-        Args:
-            data_path ([type]): [description]
-            vocab ([type]): [description]
-            config ([type]): [description]
-        """
+    def __init__(self, data_path, vocab, mode="train", device="cpu"):
         print("data_path: ", data_path)
 
         self.data_path = data_path
         self.vocab = vocab
-        self.config = config
+        self.mode = mode
+        self.device = device
 
         self.batch_queue = queue.Queue(self.BATCH_QUEUE_MAX)
-        self.input_queue = queue.Queue(
-            self.BATCH_QUEUE_MAX *
-            self.config['graph_structure_net']['branch_batch_size'])
+        self.input_queue = queue.Queue(self.BATCH_QUEUE_MAX *
+                                       params.branch_batch_size)
 
         # with open('/'.join(data_path.split('/')[:-1]) + '/' + 'pred_struct_dist.pkl', 'r') as f_pred:
         # self.struct_dist = pkl.load(f_pred)
         self.struct_dist = None
 
-        if config['mode'] == 'eval':
+        if self.mode == 'eval':
             self.eval_num = 0
 
         self.num_input_threads = 1
@@ -194,9 +209,8 @@ class Batcher(object):
     def _next_batch(self):
         """Return a Batch from the batch queue.
         """
-        if self.config['mode'] == 'eval':
-            if self.eval_num > 5000 / self.config['graph_structure_net'][
-                    'branch_batch_size']:
+        if self.mode == 'eval':
+            if self.eval_num > 5000 / params.branch_batch_size:
                 self.eval_num = 0
                 return None
             else:
@@ -210,7 +224,7 @@ class Batcher(object):
         """
         while True:
             file_list = glob.glob(self.data_path)
-            if self.config['mode'] == 'decode':
+            if self.mode == 'decode':
                 file_list = sorted(file_list)
             else:
                 shuffle(file_list)
@@ -218,40 +232,34 @@ class Batcher(object):
             for f in file_list:
                 with open(f, 'rb') as reader:
                     for record in reader:
-                        record = RecordMaker(record, self.vocab, self.config)
+                        record = RecordMaker(record, self.vocab)
                         self.input_queue.put(record)
 
     def _fill_batch_queue(self):
         """Get data from input queue and put into batch queue
         """
         while True:
-            if self.config['mode'] == 'decode':
+            if self.mode == 'decode':
                 ex = self.input_queue.get()
-                b = [
-                    ex for _ in range(self.config['graph_structure_net']
-                                      ['branch_batch_size'])
-                ]
+                b = [ex for _ in range(params.branch_batch_size)]
                 self.batch_queue.put(
-                    Batch(b, self.config, self.vocab, self.struct_dist))
+                    Batch(b, self.vocab, self.struct_dist, device=self.device))
             else:
                 inputs = []
-                for _ in range(
-                        self.config['graph_structure_net']['branch_batch_size']
-                        * self.cache_size):
+                for _ in range(params.branch_batch_size * self.cache_size):
                     inputs.append(self.input_queue.get())
 
                 batches = []
-                for i in range(
-                        0, len(inputs), self.config['graph_structure_net']
-                    ['branch_batch_size']):
-                    batches.append(
-                        inputs[i:i + self.config['graph_structure_net']
-                               ['branch_batch_size']])
-                if self.config['mode'] not in ['eval', 'decode']:
+                for i in range(0, len(inputs), params.branch_batch_size):
+                    batches.append(inputs[i:i + params.branch_batch_size])
+                if self.mode not in ['eval', 'decode']:
                     shuffle(batches)
                 for b in batches:
                     self.batch_queue.put(
-                        Batch(b, self.config, self.vocab, self.struct_dist))
+                        Batch(b,
+                              self.vocab,
+                              self.struct_dist,
+                              device=self.device))
 
     def _watch_threads(self):
         """Watch input queue and batch queue threads and restart if dead."""
@@ -274,14 +282,11 @@ class Batcher(object):
 
 
 class RecordMaker(object):
-    def __init__(self, record, vocab, config):
-        self.config = config
+    def __init__(self, record, vocab):
 
         start_id = vocab._word2id(DECODING_START)
         end_id = vocab._word2id(DECODING_END)
         self.pad_id = vocab._word2id(PAD_TOKEN)
-        max_enc_steps = config['graph_structure_net']['max_enc_steps']
-        max_dec_steps = config['graph_structure_net']['max_dec_steps']
 
         ### load data from the json string
         record = json.loads(record)
@@ -297,7 +302,7 @@ class RecordMaker(object):
         ### encoder
         context_words = []
         for context in context_list:
-            words = context.strip().split()[:max_enc_steps]
+            words = context.strip().split()[:params.max_enc_steps]
             context_words.append(words)
 
         self.branch_len = len(context_words)
@@ -305,13 +310,13 @@ class RecordMaker(object):
         self.enc_input = []
         for words in context_words:
             self.enc_len.append(len(words))
-            self.enc_input.append([vocab._word2id(w) for w in words] +
-                                  [self.pad_id] * (max_enc_steps - len(words)))
+            self.enc_input.append([vocab._word2id(w)
+                                   for w in words] + [self.pad_id] *
+                                  (params.max_enc_steps - len(words)))
 
-        self.pad_sent = [self.pad_id for _ in range(max_enc_steps)
+        self.pad_sent = [self.pad_id for _ in range(params.max_enc_steps)
                          ]  # the sentence which only have 'pad_id'
-        while len(self.enc_input
-                  ) < config['graph_structure_net']['sen_batch_size']:
+        while len(self.enc_input) < params.sen_batch_size:
             self.enc_len.append(0)
             self.enc_input.append(self.pad_sent)
 
@@ -320,13 +325,13 @@ class RecordMaker(object):
         dec_ids = [vocab._word2id(w) for w in response_words]
         # dec_ids lens
         self.dec_len = len(dec_ids) + 1 if (
-            len(dec_ids) + 1) < max_dec_steps else max_dec_steps
+            len(dec_ids) + 1) < params.max_dec_steps else params.max_dec_steps
         # decoder input
-        self.dec_input = [start_id] + dec_ids[:max_dec_steps - 1] + \
-                         [self.pad_id] * (max_dec_steps - len(dec_ids) - 1)
+        self.dec_input = [start_id] + dec_ids[:params.max_dec_steps - 1] + \
+                         [self.pad_id] * (params.max_dec_steps - len(dec_ids) - 1)
         # decoder target
-        self.dec_target = dec_ids[:max_dec_steps - 1] + [end_id] + \
-                          [self.pad_id] * (max_dec_steps - len(dec_ids) - 1)
+        self.dec_target = dec_ids[:params.max_dec_steps - 1] + [end_id] + \
+                          [self.pad_id] * (params.max_dec_steps - len(dec_ids) - 1)
 
         self.original_context = ' '.join(context_list)
         self.original_response = response

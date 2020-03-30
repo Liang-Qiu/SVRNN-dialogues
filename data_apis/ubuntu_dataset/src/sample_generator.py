@@ -43,6 +43,7 @@ def get_one_thread_samples(thread, max_n_agents, n_prev_sents, test=False):
 
         if adr_id == '-':
             if len(sents) > 2:
+                # TODO: hyperparameter
                 if len(sents) > 9:
                     sents = sents[:9]
                 sample_json = Sample(sents)

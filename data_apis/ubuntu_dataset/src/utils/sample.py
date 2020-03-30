@@ -9,6 +9,7 @@ class Sample(object):
 
         # 1D: n_prev_sents, 2D: max_n_words
         self.context = [s[-1] for s in sents]
+
         self.answer = self.context[self.ans_idx]
         del self.context[self.ans_idx]
 
