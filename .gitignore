@@ -115,3 +115,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+
+#ipnb
+.ipnb

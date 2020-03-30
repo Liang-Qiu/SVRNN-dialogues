@@ -9,10 +9,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+import torch_struct
+
 import sys
 sys.path.append("..")
 import params
 from .vae_cell import VAECell
+from models.attention_module import LinearChain
 
 
 class VRNN(nn.Module):
@@ -36,6 +39,9 @@ class VRNN(nn.Module):
                                     params.num_layer,
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
+
+        self.linear_chain = LinearChain(params.attention_type, params.encoding_cell_size * 2)
+
 
     def forward(self,
                 usr_input_sent,
@@ -109,6 +115,12 @@ class VRNN(nn.Module):
             [usr_sent_embedding, sys_sent_embedding],
             dim=2)  # (batch, dialog_len, encoding_cell_size * 2) (16, 10, 800)
 
+
+        #Pytorch-struct
+        transition_marginals = self.linear_chain(joint_embedding)
+        #print(transition_maginals.shape)
+        #exit()
+
         ########################### state level ############################
         dec_input_embedding_usr = self.embedding(
             usr_input_sent)  # (16, 10, 40, 300)
@@ -173,6 +185,7 @@ class VRNN(nn.Module):
                 output_token,
                 prev_z_t=prev_z,
                 prev_embeddings=joint_embedding[:, :utt, :],
+                marginals = transition_marginals[:, :utt, :, :],
                 training=training)
 
             shape = z_samples.size()
