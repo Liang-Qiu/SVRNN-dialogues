@@ -80,6 +80,7 @@ def train(model, train_loader, optimizer):
 
 def valid(model, valid_loader):
     elbo_t = []
+    model.eval()
     while True:
         batch = valid_loader.next_batch()
         if batch is None:
@@ -93,11 +94,11 @@ def valid(model, valid_loader):
 
 def decode(model, data_loader):
     results = []
+    model.eval()
     while True:
         batch = data_loader.next_batch()
         if batch is None:
             break
-        # TODO: model.train() does the same thing
         result = model(*batch, training=False)
         results.append(result)
     return results

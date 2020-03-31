@@ -35,6 +35,8 @@ class VRNN(nn.Module):
                                     params.num_layer,
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
+        if params.dropout not in (None, 0):
+            self.dropout = nn.Dropout(params.dropout)
 
     def forward(self,
                 usr_input_sent,
@@ -96,13 +98,9 @@ class VRNN(nn.Module):
             -1, params.max_dialog_len,
             params.encoding_cell_size)  # (16, 10, 400)
 
-        if params.dropout > 0:
-            usr_sent_embedding = F.dropout(usr_sent_embedding,
-                                           p=params.dropout,
-                                           training=training)
-            sys_sent_embedding = F.dropout(sys_sent_embedding,
-                                           p=params.dropout,
-                                           training=training)
+        if params.dropout not in (None, 0):
+            usr_sent_embedding = self.dropout(usr_sent_embedding)
+            sys_sent_embedding = self.dropout(sys_sent_embedding)
 
         joint_embedding = torch.cat(
             [usr_sent_embedding, sys_sent_embedding],
@@ -171,8 +169,7 @@ class VRNN(nn.Module):
                 dec_seq_len,
                 output_token,
                 prev_z_t=prev_z,
-                prev_embeddings=joint_embedding[:, :utt, :],
-                training=training)
+                prev_embeddings=joint_embedding[:, :utt, :])
 
             shape = z_samples.size()
             _, ind = z_samples.max(dim=-1)

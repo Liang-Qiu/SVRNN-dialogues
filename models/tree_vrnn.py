@@ -31,6 +31,8 @@ class TreeVRNN(nn.Module):
                                     params.num_layer,
                                     batch_first=True)
             self.vae_cell = TreeVAECell(state_is_tuple=True)
+        if params.dropout not in (None, 0):
+            self.dropout = nn.Dropout(params.dropout)
 
     def forward(self,
                 enc_batch,
@@ -66,10 +68,8 @@ class TreeVRNN(nn.Module):
         sent_embedding = sent_embedding.view(
             -1, params.sen_batch_size, params.sen_hidden_dim)  # (5, 9, 400)
 
-        if params.dropout > 0:
-            sent_embedding = F.dropout(sent_embedding,
-                                       p=params.dropout,
-                                       training=training)
+        if params.dropout not in (None, 0):
+            sent_embedding = self.dropout(sent_embedding)
 
         ########################### state level ############################
         dec_input_embedding = self.embedding(dec_batch)  # (5, 50, 300)
@@ -105,8 +105,7 @@ class TreeVRNN(nn.Module):
                 inputs,
                 state,
                 prev_z_t=prev_z,
-                prev_embeddings=sent_embedding[:, :utt, :],
-                training=training)
+                prev_embeddings=sent_embedding[:, :utt, :])
             # save the previous state
             z_samples_list.append(z_samples)
             z_samples_context_list.append(z_samples_context)
@@ -164,7 +163,6 @@ class TreeVRNN(nn.Module):
             z_samples_dec,
             h_prev,
             dec_input_embedding,
-            training=training,
             z_samples_context=z_samples_context_dec)
         elbo_t, rc_loss, kl_loss, bow_loss = BPR_BOW_loss_single(
             target_batch,

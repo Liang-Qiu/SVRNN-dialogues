@@ -1,11 +1,9 @@
-import sys
 import argparse
 from collections import Counter
 import os
 
 import pickle as pkl
 import numpy as np
-import copy
 import torch
 from beeprint import pp
 

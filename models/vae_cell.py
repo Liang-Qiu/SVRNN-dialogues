@@ -57,24 +57,26 @@ class VAECell(nn.Module):
         else:
             self.state_rnn = nn.LSTMCell(params.encoding_cell_size * 2 + 200,
                                          params.state_cell_size)
+        if params.dropout not in (None, 0):
+            self.dropout = nn.Dropout(params.dropout)
 
         # attention
         if params.use_sentence_attention:
             self.attn = Attn(params.attention_type,
                              params.encoding_cell_size * 2)
 
-    def encode(self, inputs, h_prev, training=True):
+    def encode(self, inputs, h_prev):
         enc_inputs = torch.cat(
             [h_prev, inputs],
             1)  # [batch, encoding_cell_size * 2 + state_cell_size]
-        net1 = self.enc_mlp(enc_inputs, training=training)
+        net1 = self.enc_mlp(enc_inputs)
         logits_z = self.enc_fc(net1)
         q_z = F.softmax(logits_z, dim=1)
         log_q_z = F.log_softmax(logits_z, dim=1)
 
         return logits_z, q_z, log_q_z
 
-    def context_encode(self, inputs, h_prev, prev_embeddings, training=True):
+    def context_encode(self, inputs, h_prev, prev_embeddings):
         '''
         :param inputs: sentence encoding for current dialogue index(utt) [batch, encoding_cell_size * 2]
         :param h_prev: previous h state from LSTM [batch, state_cell_size]
@@ -87,7 +89,7 @@ class VAECell(nn.Module):
             [h_prev, context],
             1)  # [batch, encoding_cell_size * 2 + state_cell_size]
 
-        net1 = self.enc_mlp(enc_inputs, training=training)
+        net1 = self.enc_mlp(enc_inputs)
         logits_z = self.enc_fc(net1)
         q_z = F.softmax(logits_z, dim=1)
         log_q_z = F.log_softmax(logits_z, dim=1)
@@ -98,9 +100,8 @@ class VAECell(nn.Module):
                z_samples,
                h_prev,
                dec_input_embedding,
-               training=True,
                z_samples_context=None):
-        net2 = self.dec_mlp(z_samples, training=training)  # [batch, 200]
+        net2 = self.dec_mlp(z_samples)  # [batch, 200]
         # decoder for user utterance
         dec_input_1 = torch.unsqueeze(
             torch.cat([h_prev, net2], dim=1),
@@ -108,8 +109,7 @@ class VAECell(nn.Module):
 
         # decoder from context
         if params.use_sentence_attention:
-            net2_context = self.dec_mlp(z_samples_context,
-                                        training=training)  # [batch, 200]
+            net2_context = self.dec_mlp(z_samples_context)  # [batch, 200]
             dec_input_1_context = torch.unsqueeze(
                 torch.cat([h_prev, net2_context], dim=1),
                 dim=0)  # [num_layer(1), batch, state_cell_size + 200]
@@ -122,8 +122,8 @@ class VAECell(nn.Module):
 
         dec_outs_1, final_state_1 = self.dec_rnn_1(
             dec_input_embedding[0], (dec_input_1, dec_input_1_context))
-
-        dec_outs_1 = F.dropout(dec_outs_1, p=params.dropout, training=training)
+        if params.dropout not in (None, 0):
+            dec_outs_1 = self.dropout(dec_outs_1)
         dec_outs_1 = self.dec_fc_1(dec_outs_1)
         dec_input_2_h = torch.cat(
             [dec_input_1, final_state_1[0]],
@@ -135,7 +135,8 @@ class VAECell(nn.Module):
 
         dec_outs_2, final_state_2 = self.dec_rnn_2(
             dec_input_embedding[1], (dec_input_2_h, dec_input_2_c))
-        dec_outs_2 = F.dropout(dec_outs_2, p=params.dropout, training=training)
+        if params.dropout not in (None, 0):
+            dec_outs_2 = self.dropout(dec_outs_2)
         dec_outs_2 = self.dec_fc_2(dec_outs_2)
 
         # for computing BOW loss
@@ -143,19 +144,15 @@ class VAECell(nn.Module):
         if params.with_BOW:
             bow_fc1 = self.bow_fc1(torch.squeeze(dec_input_1, dim=0))
             bow_fc1 = torch.tanh(bow_fc1)
-            if params.dropout > 0:
-                bow_fc1 = F.dropout(bow_fc1,
-                                    p=params.dropout,
-                                    training=training)
+            if params.dropout not in (None, 0):
+                bow_fc1 = self.dropout(bow_fc1)
             bow_logits1 = self.bow_project1(
                 bow_fc1)  # [batch_size, vocab_size]
 
             bow_fc2 = self.bow_fc2(torch.squeeze(dec_input_2_h, dim=0))
             bow_fc2 = torch.tanh(bow_fc2)
-            if params.dropout > 0:
-                bow_fc2 = F.dropout(bow_fc2,
-                                    p=params.dropout,
-                                    training=training)
+            if params.dropout not in (None, 0):
+                bow_fc2 = self.dropout(bow_fc2)
             bow_logits2 = self.bow_project2(bow_fc2)
         return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
 
@@ -166,7 +163,6 @@ class VAECell(nn.Module):
                 dec_seq_lens,
                 output_tokens,
                 prev_z_t=None,
-                training=True,
                 prev_embeddings=None):
         if params.with_direct_transition:
             assert prev_z_t is not None
@@ -175,7 +171,7 @@ class VAECell(nn.Module):
         else:
             h_prev = state
         # encode
-        logits_z, q_z, log_q_z = self.encode(inputs, h_prev, training=training)
+        logits_z, q_z, log_q_z = self.encode(inputs, h_prev)
 
         # sample
         z_samples, logits_z_samples = gumbel_softmax(
@@ -184,7 +180,7 @@ class VAECell(nn.Module):
         #encode from context
         if params.use_sentence_attention:
             logits_z_context, q_z_context, log_q_z_context = self.context_encode(
-                inputs, h_prev, prev_embeddings, training=training)
+                inputs, h_prev, prev_embeddings)
 
             #sample from context
             z_samples_context, logits_z_samples_context = gumbel_softmax(
@@ -197,17 +193,16 @@ class VAECell(nn.Module):
             z_samples,
             h_prev,
             dec_input_embedding,
-            training=training,
             z_samples_context=z_samples_context)
 
         if params.with_direct_transition:
-            net3 = self.transit_mlp(prev_z_t, training=training)
+            net3 = self.transit_mlp(prev_z_t)
             p_z = self.transit_fc(net3)
             p_z = F.softmax(p_z, dim=1)
             log_p_z = torch.log(p_z + 1e-20)
 
         else:
-            net3 = self.transit_mlp(h_prev, training=training)
+            net3 = self.transit_mlp(h_prev)
             p_z = self.transit_fc(net3)
             p_z = F.softmax(p_z, dim=1)
             log_p_z = torch.log(p_z + 1e-20)
