@@ -1,6 +1,6 @@
 """Global parameters.
 """
-use_cuda = True
+use_cuda = False
 seed = 233
 max_vocab_cnt = 10000
 word2vec_path = None  # The path to word2vec. Can be None.
@@ -15,7 +15,7 @@ rev_vocab_dir = "data/cambridge_data/rev_vocab.pkl"  # "data/weather_rev_vocab.p
 
 # Ubuntu Dialog Corpus
 data_pre = "/home/liang/Workspace/Corpus/#ubuntu-2004/"
-data_path = data_pre + "train-*.json"
+data_path = data_pre + "train-sample/train-*.json"
 eval_data_path = data_pre + "dev-sample/dev-*.json"
 test_data_path = data_pre + "test-sample/test-*.json"
 vocab_path = data_pre + "vocab"
@@ -25,19 +25,20 @@ mode = "train"  # train, eval, decode
 branch_batch_size = 5
 sen_batch_size = 9
 emb_dim = 300
-sen_hidden_dim = 300
+sen_hidden_dim = 400
 branch_hidden_dim = 300
 max_enc_steps = 50
 max_dec_steps = 50
 min_dec_steps = 5
 dropout = 1.0
-positional_enc = True  # use the positional encoding tricks
-positional_enc_dim = 64  # dimension of word embeddings
 n_gram = 3  # number of n_gram
 use_norm = True  # use norm
 norm_alpha = 0.25  # norm_alpha
 user_struct = True  # use the struct of user relation
 long_attn = False  # use the struct of all sent attn
+print_after = 10
+n_training_steps = 100
+eval_num = 100  # number of samples to evaluate
 
 # VAE-CRF config
 n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:

@@ -1,3 +1,4 @@
+
 from __future__ import print_function
 
 import random
@@ -96,6 +97,7 @@ def decode(model, data_loader):
         batch = data_loader.next_batch()
         if batch is None:
             break
+        # TODO: model.train() does the same thing
         result = model(*batch, training=False)
         results.append(result)
     return results

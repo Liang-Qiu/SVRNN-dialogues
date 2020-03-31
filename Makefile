@@ -4,8 +4,8 @@ install:
 	pip install -r requirements.txt
 
 dataset:
-	python data_apis/ubuntu_dataset/src/dataset_generator.py --data=$(data_path)
-	python data_apis/ubuntu_dataset/src/dataset_separator.py --data=$(data_path)/#ubuntu.gz
+	# python data_apis/ubuntu_dataset/src/dataset_generator.py --data=$(data_path)
+	# python data_apis/ubuntu_dataset/src/dataset_separator.py --data=$(data_path)/#ubuntu.gz
 	python data_apis/ubuntu_dataset/src/sample_generator.py --train_data=$(data_path)/train-data.gz --dev_data=$(data_path)/dev-data.gz --test_data=$(data_path)/test-data.gz
 
 style:

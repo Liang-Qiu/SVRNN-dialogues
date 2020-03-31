@@ -150,7 +150,7 @@ class Batch(object):
                 self.padding_mask[i][j] = 1
 
             # response idx
-            self.tgt_index[i] = ex.tgt_idx + i * params.sen_batch_size
+            self.tgt_index[i] = ex.tgt_idx
 
             self.struct_dist[i, :, :] = 0
 
@@ -168,8 +168,6 @@ class Batcher(object):
     BATCH_QUEUE_MAX = 5
 
     def __init__(self, data_path, vocab, mode="train", device="cpu"):
-        print("data_path: ", data_path)
-
         self.data_path = data_path
         self.vocab = vocab
         self.mode = mode
@@ -210,7 +208,7 @@ class Batcher(object):
         """Return a Batch from the batch queue.
         """
         if self.mode == 'eval':
-            if self.eval_num > 5000 / params.branch_batch_size:
+            if self.eval_num > params.eval_num / params.branch_batch_size:
                 self.eval_num = 0
                 return None
             else:

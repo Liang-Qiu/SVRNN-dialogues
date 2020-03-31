@@ -154,7 +154,7 @@ def count_dataset(fn):
           (num_w, num_w / float(num_s), num_s))
 
 
-def load_dataset(fn, vocab=set([]), sample_size=1000000, check=False):
+def load_dataset(fn, vocab=dict(), sample_size=1000000, check=False):
     """
     :return: samples: 1D: n_docs, 2D: n_utterances, 3D: elem=(time, speaker_id, addressee_id, cand_res1, ... , label)
     """
@@ -181,7 +181,10 @@ def load_dataset(fn, vocab=set([]), sample_size=1000000, check=False):
                         word_ids = []
                         for w in sent.split():
                             w = w.lower()
-                            vocab.add(w)
+                            if w in vocab:
+                                vocab[w] += 1
+                            else:
+                                vocab[w] = 1
                             word_ids.append(w)
                         line[3 + i] = word_ids
 
@@ -195,7 +198,12 @@ def load_dataset(fn, vocab=set([]), sample_size=1000000, check=False):
     if check:
         say('\n\n LOAD DATA EXAMPLE:\n\t%s' % str(samples[0][0]))
 
-    return samples, vocab
+    vocab_sorted = {
+        k: v
+        for k, v in sorted(
+            vocab.items(), key=lambda item: item[1], reverse=True)
+    }
+    return samples, vocab_sorted
 
 
 def output_samples(fn, samples, vocab_word=None):
@@ -219,9 +227,9 @@ def output_samples(fn, samples, vocab_word=None):
             json.dump(sample_dict, json_file)
 
 
-def output_vocab(word_set):
+def output_vocab(word_vocab):
     with open('vocab', "w") as f:
-        for i, word in enumerate(word_set):
+        for i, word in enumerate(word_vocab):
             f.write(word + " " + str(i) + "\n")
 
 

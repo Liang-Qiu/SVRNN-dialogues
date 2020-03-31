@@ -119,7 +119,7 @@ def main(argv):
     path = Path(argv.train_data)
     os.chdir(path.parent)
 
-    train_dataset, dev_dataset, test_dataset, word_set = get_datasets(argv)
+    train_dataset, dev_dataset, test_dataset, word_dict = get_datasets(argv)
     train_samples, dev_samples, test_samples = create_samples(
         argv, train_dataset, dev_dataset, test_dataset)
 
@@ -129,7 +129,7 @@ def main(argv):
     output_samples('train-sample', train_samples)
     output_samples('dev-sample', dev_samples)
     output_samples('test-sample', test_samples)
-    output_vocab(word_set)
+    output_vocab(word_dict)
 
 
 if __name__ == '__main__':
