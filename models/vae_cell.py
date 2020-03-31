@@ -94,6 +94,30 @@ class VAECell(nn.Module):
 
         return logits_z, q_z, log_q_z
 
+    def context_encode_linear_chain(self, inputs, h_prev, prev_embeddings, marginals, training=True):
+        '''
+        :param inputs: sentence encoding for current dialogue index(utt) [batch, encoding_cell_size * 2]
+        :param h_prev: previous h state from LSTM [batch, state_cell_size]
+        :param prev_embeddings: previous sentence embeddings [batch, current_utt_index - 1, encoding_cell_size * 2]
+        :param marginals: LinearCRF marginal probablity [batch, current_utt_index - 1, 2, 2]
+        :return: hidden_state from vae [batch x n_state]
+        '''
+        dialog_length = prev_embeddings.size(1)
+        marginals_one_prob = marginals.sum(-1)[:,:,1]
+        marginals_one_prob = marginals_one_prob.unsqueeze(1)
+        context = marginals_one_prob.bmm(prev_embeddings).squeeze(1)
+        context = context / dialog_length #normalize attention
+        enc_inputs = torch.cat(
+            [h_prev, context],
+            1)  # [batch, encoding_cell_size * 2 + state_cell_size]
+
+        net1 = self.enc_mlp(enc_inputs, training=training)
+        logits_z = self.enc_fc(net1)
+        q_z = F.softmax(logits_z, dim=1)
+        log_q_z = F.log_softmax(logits_z, dim=1)
+
+        return logits_z, q_z, log_q_z
+
     def decode(self,
                z_samples,
                h_prev,
@@ -107,7 +131,7 @@ class VAECell(nn.Module):
             dim=0)  # [num_layer(1), batch, state_cell_size + 200]
 
         # decoder from context
-        if params.use_sentence_attention:
+        if params.use_sentence_attention and z_samples_context!=None:
             net2_context = self.dec_mlp(z_samples_context,
                                         training=training)  # [batch, 200]
             dec_input_1_context = torch.unsqueeze(
@@ -167,7 +191,8 @@ class VAECell(nn.Module):
                 output_tokens,
                 prev_z_t=None,
                 training=True,
-                prev_embeddings=None):
+                prev_embeddings=None,
+                marginals = None):
         if params.with_direct_transition:
             assert prev_z_t is not None
         if self._state_is_tuple:
@@ -180,9 +205,11 @@ class VAECell(nn.Module):
             logits_z, self.tau, hard=False)  # [batch, n_state]
 
         #encode from context
-        if params.use_sentence_attention:
-            logits_z_context, q_z_context, log_q_z_context = self.context_encode(
-                inputs, h_prev, prev_embeddings, training=training)
+        if params.use_sentence_attention and prev_embeddings.size(1) > 0:
+            # logits_z_context, q_z_context, log_q_z_context = self.context_encode(
+            #     inputs, h_prev, prev_embeddings, training=training)
+            logits_z_context, q_z_context, log_q_z_context = self.context_encode_linear_chain(
+                inputs, h_prev, prev_embeddings, marginals, training=training)
 
             #sample from context
             z_samples_context, logits_z_samples_context = gumbel_softmax(
