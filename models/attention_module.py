@@ -58,6 +58,7 @@ class Attn(nn.Module):
             energy = self.v.dot(energy)
             return energy
 
+
 # class LinearChain(nn.Module):
 #     def __init__(self, method, embed_size, class_num = 2):
 #         super(LinearChain, self).__init__()
