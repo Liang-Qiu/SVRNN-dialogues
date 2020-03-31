@@ -9,6 +9,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+import torch_struct
+
 import sys
 sys.path.append("..")
 import params
@@ -37,7 +39,6 @@ class VRNN(nn.Module):
                                     params.num_layer,
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
-
         #self.linear_chain = LinearChain(params.attention_type, params.encoding_cell_size * 2)
 
         '''
