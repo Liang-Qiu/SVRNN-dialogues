@@ -57,3 +57,51 @@ class Attn(nn.Module):
             energy = self.attn(torch.cat((hidden, encoder_output), 0))
             energy = self.v.dot(energy)
             return energy
+
+# class LinearChain(nn.Module):
+#     def __init__(self, method, embed_size, class_num = 2):
+#         super(LinearChain, self).__init__()
+#         self.method = method
+#         self.class_num = class_num
+#         self.embed_size = embed_size
+#         if self.method == "dot":
+#             pass
+#
+#         elif self.method == 'general':
+#             self.W = nn.Linear(embed_size, embed_size)
+#
+#         else: #self.method == 'concat'
+#             self.W = nn.Linear(self.embed_size * 2, embed_size)
+#             self.v = nn.Parameter(torch.zeros(embed_size))
+#             self.tanh = nn.Tanh()
+#
+#         self.EnergyPotentialNet = nn.Sequential(
+#             nn.Linear(embed_size, 32),
+#             nn.Linear(32, self.class_num**2)
+#         )
+#
+#     def forward(self, joint_embedding):
+#         '''
+#         :param joint_embedding: sentence embedding [batch, length, encode_dim]
+#         :return:
+#         '''
+#         batch_size = joint_embedding.size(0)
+#
+#         joint_embedding_0 = joint_embedding[:,0:-1,:]
+#         joint_embedding_1 = joint_embedding[:,1:,:]
+#
+#
+#         if self.method == "dot":
+#             energy = joint_embedding_0 * joint_embedding_1
+#
+#         elif self.method == "general":
+#             energy = self.W(joint_embedding_0)* joint_embedding_1
+#
+#         else:#self.method == 'concat'
+#             energy = self.W(torch.cat((joint_embedding_0, joint_embedding_1), -1))
+#             energy = self.v * self.tanh(energy)
+#
+#         energy = energy.view(-1, self.embed_size)
+#         log_potentials =  self.EnergyPotentialNet(energy).view(batch_size, -1, self.class_num , self.class_num)
+#         dist = torch_struct.LinearChainCRF(log_potentials)
+#         return dist.marginals
