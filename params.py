@@ -53,7 +53,7 @@ max_utt_len = 40  # max number of words in an utterance
 max_dialog_len = 10  # max number of turns in a dialog
 num_layer = 1  # number of context RNN layers
 use_sentence_attention = True
-attention_type = "dot"  #dot, general, concat
+attention_type = "concat"  #dot, general, concat
 
 # Optimization parameters
 op = "adam"  # adam, rmsprop, sgd

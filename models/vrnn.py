@@ -8,10 +8,12 @@ import sys
 import torch
 from torch import nn
 import torch.nn.functional as F
+import torch_struct
 
 sys.path.append("..")
 import params
 from .vae_cell import VAECell
+#from models.attention_module import LinearChain
 
 
 class VRNN(nn.Module):
@@ -35,8 +37,12 @@ class VRNN(nn.Module):
                                     params.num_layer,
                                     batch_first=True)
             self.vae_cell = VAECell(state_is_tuple=True)
-        if params.dropout not in (None, 0):
-            self.dropout = nn.Dropout(params.dropout)
+        #self.linear_chain = LinearChain(params.attention_type, params.encoding_cell_size * 2)
+
+        '''
+        Input Memory Net: Joint Embedding to Query Matrix [batch, length, params.encoding_cell_size * 2] ->[batch, length, 210 * 2]
+        '''
+        self.input_memory = nn.Linear(params.encoding_cell_size * 2, (200 + params.n_state) * 2)
 
     def forward(self,
                 usr_input_sent,
@@ -106,6 +112,11 @@ class VRNN(nn.Module):
             [usr_sent_embedding, sys_sent_embedding],
             dim=2)  # (batch, dialog_len, encoding_cell_size * 2) (16, 10, 800)
 
+        #Pytorch-struct
+        #transition_marginals = self.linear_chain(joint_embedding)
+        input_query = self.input_memory(joint_embedding)
+        input_query = input_query.view(params.batch_size, -1, 2,  200 + params.n_state)
+
         ########################### state level ############################
         dec_input_embedding_usr = self.embedding(
             usr_input_sent)  # (16, 10, 40, 300)
@@ -169,7 +180,10 @@ class VRNN(nn.Module):
                 dec_seq_len,
                 output_token,
                 prev_z_t=prev_z,
-                prev_embeddings=joint_embedding[:, :utt, :])
+                prev_embeddings=joint_embedding[:, :utt, :],
+                input_query = input_query,
+                #marginals = transition_marginals[:, :utt, :, :],
+                training=training)
 
             shape = z_samples.size()
             _, ind = z_samples.max(dim=-1)

@@ -51,4 +51,4 @@ python interpretion.py --ckpt_dir run1585003537 --ckpt_name vrnn_5.pt
 
 ## Model Architecture
 
-![Image 1](imgs/dialog_attn.PNG)
+![Image 1](imgs/dialog_attn_2.PNG)
