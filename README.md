@@ -60,12 +60,6 @@ or
 python train_tree_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_60.pt
 ```
 
-## Interpret
-
-```bash
-python interpretion.py --ckpt_dir run1532935232 --ckpt_name vrnn_60.pt
-```
-
 ## Citation
 
 If you find the paper and/or the code helpful, please cite
