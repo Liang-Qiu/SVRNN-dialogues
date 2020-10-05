@@ -10,7 +10,6 @@ interpretion.py
 # Dataset Directory
 /data/cambridge_data/
 /data/weather_data/
-/data/simdial/*.json
 /data/simdial/*.pkl
 /data/simdial/*.png
 /data/ubuntu_dataset/src/dialogs/*
