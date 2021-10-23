@@ -1,4 +1,4 @@
-.PHONY: install simdial ubuntu style clean
+.PHONY: install simdial ubuntu mwoz style clean
 
 install:
 	pip install -r requirements.txt
@@ -10,6 +10,9 @@ ubuntu:
 	python data/ubuntu_dataset/src/dataset_generator.py --data=$(data_path)
 	python data/ubuntu_dataset/src/dataset_separator.py --data=$(data_path)/#ubuntu.gz
 	python data/ubuntu_dataset/src/sample_generator.py --train_data=$(data_path)/train-data.gz --dev_data=$(data_path)/dev-data.gz --test_data=$(data_path)/test-data.gz
+
+mwoz:
+	python process_mwoz.py
 
 style:
 	yapf -i -r --style google .

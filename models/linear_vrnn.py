@@ -71,7 +71,7 @@ class LinearVRNN(nn.Module):
             -1, params.max_utt_len))  # (160, 40)
         sys_sent_mask = torch.sign(sys_input_mask.view(-1, params.max_utt_len))
         usr_sent_len = torch.sum(usr_sent_mask, dim=1)  # (160)
-        sys_sent_len = torch.sum(sys_sent_mask, dim=1)
+        sys_sent_len = torch.sum(sys_sent_mask, dim=1)  # (160)
         if params.cell_type == "gru":
             usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
             sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)

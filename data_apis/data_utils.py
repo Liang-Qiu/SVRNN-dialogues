@@ -5,6 +5,7 @@ from __future__ import division
 
 import numpy as np
 import torch
+from loguru import logger
 
 
 # Data feed
@@ -175,6 +176,15 @@ class SWDADataLoader(LongDataLoader):
             sys_full_mask.append(dialog_sys_mask)
 
         # initial_prev_zt = np.ones()
+        logger.info(f"Preparing batch, batch size: {len(cur_index_list)}")
+        # logger.info(f"usr_input_sent: {usr_input_sent[0]}")
+        # logger.info(f"sys_input_sent: {sys_input_sent}")
+        # print(len(usr_input_sent))
+        # print(len(usr_input_sent[0]))
+        # print(len(usr_input_sent[0][0]))
+        # logger.info(f"usr_full_mask: {usr_full_mask[0]}")
+        # logger.info(f"sys_full_mask: {sys_full_mask}")
+        # logger.info(f"dialog_lens: {dialog_lens}")
 
         return torch.tensor(usr_input_sent).to(self.device), torch.tensor(sys_input_sent).to(self.device), torch.tensor(dialog_lens).to(self.device), \
                torch.tensor(usr_full_mask).to(self.device), torch.tensor(sys_full_mask).to(self.device)

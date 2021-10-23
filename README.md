@@ -30,19 +30,34 @@ Then generate samples from the corpus by running
 make dataset data_path=path/to/your/ubuntu/corpus
 ```
 
+### MultiWOZ
+
+Unzip the dataset `data/MultiWOZ_2.1.zip`
+
+```bash
+make mwoz
+```
+
 If you want to use GloVe in your experiment, download it [here](https://nlp.stanford.edu/projects/glove/).
 
 ## Train  
 
-All configuration is in `params.py`. You should change `use_cuda=True` if you want to use GPU. Try VRNN with Linear CRF Attention on SimDial by running
+All configuration is in `params.py`. You should change `use_cuda=True` if you want to use GPU. Try VRNN with Linear CRF Attention on SimDial/MultiWOZ by running
 
 ```bash
+# SimDial
 python train_linear_vrnn.py
+```
+
+```bash
+# MultiWOZ
+python train_multiwoz.py
 ```
 
 or VRNN with Non-projective Dependency Tree Attention on Ubuntu Chat Corpus
 
 ```bash
+# Ubuntu Chat Corpus
 python train_tree_vrnn.py
 ```
 
@@ -51,12 +66,16 @@ python train_tree_vrnn.py
 After training, there will be a ckpt_dir under `log/linear_vrnn` or `log/tree_vrnn`, e.g., run1532935232. In the ckpt_dir, there will be saved checkpints in format `*.pt`.
 
 ```bash
+# SimDial
 python train_linear_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_60.pt
+# MultiWOZ
+python train_multiwoz.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_60.pt
 ```
 
 or
 
 ```bash
+# Ubuntu Chat Corpus
 python train_tree_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_60.pt
 ```
 

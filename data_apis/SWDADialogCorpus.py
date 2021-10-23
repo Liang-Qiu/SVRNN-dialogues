@@ -7,6 +7,7 @@ from collections import Counter
 import numpy as np
 import nltk
 import gensim
+from loguru import logger
 
 from sklearn.preprocessing import OneHotEncoder
 
@@ -37,6 +38,11 @@ class SWDADialogCorpus(object):
         self.sil_utt = ["<s>", "<sil>", "</s>"]
         data = pkl.load(open(self._path, "rb"))
         self.train_corpus = self.process(data["train"])
+        logger.info("Printing dialog examples from train set")
+        for i in range(3):
+            dialog = self.train_corpus[self.dialog_id][i]
+            logger.info("Example %d: %s" % (i, dialog))
+
         # self.valid_corpus = self.process(data["valid"])
         self.test_corpus = self.process(data["test"])
         if self.labeled:
@@ -81,6 +87,7 @@ class SWDADialogCorpus(object):
 
         print("Max utt len %d, mean utt len %.2f" %
               (np.max(all_lenes), float(np.mean(all_lenes))))
+
         if labeled:
             return new_dialog, new_utts, new_labels
         else:
@@ -186,6 +193,9 @@ class SWDADialogCorpus(object):
         if self.labeled:
             id_labeled = _to_id_corpus(self.labeled_corpus[self.dialog_id])
         id_test = _to_id_corpus(self.test_corpus[self.dialog_id])
+
+        for i in range(3):
+            logger.info(f"Example ID %d: %s" % (i, id_train[i]))
 
         if self.labeled:
             return {'train': id_train, 'labeled': id_labeled, 'test': id_test}

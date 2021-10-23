@@ -24,6 +24,10 @@ test_data_path = data_pre + "test-sample/test-*.json"
 vocab_path = data_pre + "vocab"
 mode = "train"  # train, eval, decode
 
+# MultiWOZ
+mwoz_domains = ["taxi", "restaurant", "hotel", "attraction", "train"]
+test_domain = "hotel"
+
 # tree_vae config
 max_enc_steps = 50
 max_dec_steps = 50
