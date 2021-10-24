@@ -4,7 +4,7 @@ max_epoch = 60  # max number of epoch of training
 use_cuda = False
 gpu_idx = 7
 seed = 233
-max_vocab_cnt = 500
+max_vocab_cnt = 1765
 word2vec_path = None  # The path to word2vec. Can be None.
 log_dir = "log"  # Experiment results directory.
 use_glove = False
@@ -25,6 +25,7 @@ vocab_path = data_pre + "vocab"
 mode = "train"  # train, eval, decode
 
 # MultiWOZ
+mwoz_path = "data/MultiWOZ_2.1/data_single.json"
 mwoz_domains = ["taxi", "restaurant", "hotel", "attraction", "train"]
 test_domain = "hotel"
 

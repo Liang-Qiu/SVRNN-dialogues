@@ -12,6 +12,7 @@ from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from beeprint import pp
+from loguru import logger
 
 from models.linear_vrnn import LinearVRNN
 from data_apis.data_utils import SWDADataLoader
@@ -21,7 +22,7 @@ import params
 
 
 def get_dataset(device):
-    api = MultiWOZCorpus(params.data_dir)
+    api = MultiWOZCorpus(params.mwoz_path, max_vocab_cnt=params.max_vocab_cnt)
 
     dial_corpus = api.get_dialog_corpus()
     train_dial = dial_corpus.get("train")
@@ -217,7 +218,8 @@ def main(args):
             var: getattr(params, var)
             for var in param_vars if getattr(params, var) != None
         }
-        writer.add_hparams(params_dict, {"NA": 0})
+        logger.info(f"Parameters: {params_dict}")
+        # writer.add_hparams(params_dict, {"NA": 0})
 
         writer.add_text('Hyperparameters', pp(params, output=False))
 
