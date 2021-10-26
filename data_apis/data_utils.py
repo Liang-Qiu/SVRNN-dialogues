@@ -115,7 +115,7 @@ class SWDADataLoader(LongDataLoader):
         self.max_dialog_size = max_dialog_len
         self.labeled = labeled
         self.device = device
-        print("Max dialog len %d and min dialog len %d and avg len %f" %
+        logger.info("Max dialog len %d and min dialog len %d and avg len %f" %
               (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
         # self.indexes = list(np.argsort(all_lens))
         self.indexes = list(range(self.data_size))

@@ -164,19 +164,18 @@ def main(args):
     np.random.seed(seed + 1)
     torch.manual_seed(seed + 2)
 
-    print("Available GPUs: %d" % torch.cuda.device_count())
-    sys.stdout.flush()
+    logger.info("Available GPUs: %d" % torch.cuda.device_count())
     use_cuda = params.use_cuda and torch.cuda.is_available()
     if use_cuda:
         assert params.gpu_idx < torch.cuda.device_count(
         ), "params.gpu_idx must be one of the available GPUs"
         device = torch.device("cuda:" + str(params.gpu_idx))
         torch.cuda.set_device(device)
-        print("Using GPU: %d" % torch.cuda.current_device())
+        logger.info("Using GPU: %d" % torch.cuda.current_device())
         sys.stdout.flush()
     else:
         device = torch.device("cpu")
-        print("Using CPU for training")
+        logger.info("Using CPU for training")
 
     train_loader, word2vec = get_dataset(device)
 
@@ -187,7 +186,7 @@ def main(args):
         ckpt_dir = "run" + str(int(time.time()))
         log_dir = os.path.join(params.log_dir, "multiwoz", ckpt_dir)
     os.makedirs(log_dir, exist_ok=True)
-    print("Writing logs to %s" % log_dir)
+    logger.info("Writing logs to %s" % log_dir)
     writer = SummaryWriter(log_dir=log_dir)
 
     model = LinearVRNN().to(device)
@@ -201,7 +200,7 @@ def main(args):
                               weight_decay=params.lr_decay)
 
     if word2vec is not None and not args.forward_only:
-        print("Load word2vec")
+        logger.info("Load word2vec")
         sys.stdout.flush()
         model.embedding.from_pretrained(torch.from_numpy(word2vec),
                                         freeze=False)
@@ -224,7 +223,7 @@ def main(args):
 
     last_epoch = 0
     if args.resume:
-        print("Resuming training from %s" % checkpoint_path)
+        logger.info("Resuming training from %s" % checkpoint_path)
         sys.stdout.flush()
         state = torch.load(checkpoint_path, map_location=device)
         model.load_state_dict(state['state_dict'])
@@ -250,7 +249,7 @@ def main(args):
 
             # still save the best train model
             if args.save_model:
-                print("Saving the model")
+                logger.info("Saving the model")
                 sys.stdout.flush()
                 state = {
                     'epoch': epoch,
@@ -260,12 +259,12 @@ def main(args):
                 ckpt_name = "vrnn_" + str(epoch) + ".pt"
                 torch.save(state, os.path.join(log_dir, ckpt_name))
         time_elapsed = float(time.time() - start) / 60.00
-        print("Total training time: %.2f" % time_elapsed)
+        logger.info("Total training time: %.2f" % time_elapsed)
         return ckpt_dir, ckpt_name
     # Inference only
     else:
         state = torch.load(checkpoint_path, map_location=device)
-        print("Load model from %s" % checkpoint_path)
+        logger.info("Load model from %s" % checkpoint_path)
         sys.stdout.flush()
         model.load_state_dict(state['state_dict'])
         train_loader.epoch_init(params.batch_size, shuffle=False)

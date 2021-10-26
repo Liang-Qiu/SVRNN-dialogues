@@ -19,8 +19,8 @@ class LinearVAECell(nn.Module):
 
         self._state_is_tuple = state_is_tuple
         # temperature of gumbel_softmax
-        # TODO: make it a hyperparameter or add annealing (->0)
-        self.tau = nn.Parameter(torch.tensor([5.0]))
+        # TODO: add annealing (->0)
+        self.tau = nn.Parameter(torch.tensor([params.temperature]))
 
         self.enc_mlp = MLP(params.encoding_cell_size * 2 +
                            params.state_cell_size, [400, 200],

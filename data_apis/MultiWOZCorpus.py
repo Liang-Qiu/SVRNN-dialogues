@@ -45,7 +45,7 @@ class MultiWOZCorpus(object):
 
         self.build_vocab(max_vocab_cnt)
         self.load_word2vec()
-        print("Done loading corpus")
+        logger.info("Done loading corpus")
 
     def process(self, data, labeled=False):
         new_dialog = []
@@ -77,7 +77,7 @@ class MultiWOZCorpus(object):
             if labeled:
                 new_labels.append(dialog_labels)
 
-        print("Max utt len %d, mean utt len %.2f" %
+        logger.info("Max utt len %d, mean utt len %.2f" %
               (np.max(all_lenes), float(np.mean(all_lenes))))
 
         if labeled:
@@ -95,7 +95,7 @@ class MultiWOZCorpus(object):
         vocab_count = vocab_count[0:max_vocab_cnt]
 
         # create vocabulary list sorted by count
-        print(
+        logger.info(
             "Load corpus with train size {}, \n raw vocab size {}, vocab size {} "
             "at cut_off {} OOV rate {}".format(
                 len(self.train_corpus[0]), raw_vocab_size, len(vocab_count),
@@ -106,8 +106,6 @@ class MultiWOZCorpus(object):
         self.rev_vocab = {t: idx for idx, t in enumerate(self.vocab)}
         self.unk_id = self.rev_vocab["<unk>"]
         self.id_to_vocab = {self.rev_vocab[v]: v for v in self.rev_vocab}
-        print("<d> index %d" % self.rev_vocab.get("<d>", -2))
-        print("<sil> index %d" % self.rev_vocab.get("<sil>", -1))
 
     def load_word2vec(self, binary=True):
         if self.word_vec_path is None:

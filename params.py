@@ -78,9 +78,7 @@ if with_word_weights:
 
     slot_value_id_list = []
     for k, v in rev_vocab.items():
-        # print(type(k))
         if ("slot_" in k) or ("value_" in k):
-            #print(k)
             slot_value_id_list.append(v)
 
     multiply_factor = 3
@@ -91,8 +89,6 @@ if with_word_weights:
         word_weights[i] = multiply_factor * word_weights[i]
 
     sum_word_weights = np.sum(word_weights)
-    # print(sum_word_weights)
-    # print(type(sum_word_weights))
     assert (sum_word_weights == float(1.0))
     word_weights = list(len(rev_vocab) * np.array(word_weights))
 
