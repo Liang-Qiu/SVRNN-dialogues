@@ -1,13 +1,11 @@
-from __future__ import division
-
 import torch
 import torch.nn.functional as F
 import params
 
 
 # Thanks for the implementation at https://github.com/dev4488/VAE_gumble_softmax/blob/master/vae_gumbel_softmax.py
-# Note: PyTorch also has this in their official API now.
-def sample_gumbel(shape, eps=1e-20, device='cpu'):
+# Note: PyTorch also has this in their official API now: https://pytorch.org/docs/stable/generated/torch.nn.functional.gumbel_softmax.html.
+def sample_gumbel(shape, eps=1e-10, device='cpu'):
     """Sample from Gumbel(0, 1)"""
     U = torch.rand(shape, requires_grad=True).to(device)
     return -torch.log(-torch.log(U + eps) + eps)
@@ -16,7 +14,7 @@ def sample_gumbel(shape, eps=1e-20, device='cpu'):
 def gumbel_softmax_sample(logits, temperature):
     """ Draw a sample from the Gumbel-Softmax distribution"""
     device = "cuda" if params.use_cuda and torch.cuda.is_available() else "cpu"
-    y = logits + sample_gumbel(logits.size(), 1e-20, device)
+    y = logits + sample_gumbel(logits.size(), 1e-10, device)
     return F.softmax(y / temperature, dim=1), y / temperature
 
 

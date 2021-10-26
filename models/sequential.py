@@ -1,7 +1,4 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as fn
-from torch.nn import init
 
 
 class MLP(nn.Module):

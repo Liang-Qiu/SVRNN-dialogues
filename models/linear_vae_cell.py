@@ -14,12 +14,12 @@ import torch_struct
 
 
 class LinearVAECell(nn.Module):
-
     def __init__(self, state_is_tuple=True):
         super(LinearVAECell, self).__init__()
 
         self._state_is_tuple = state_is_tuple
         # temperature of gumbel_softmax
+        # TODO: make it a hyperparameter or add annealing (->0)
         self.tau = nn.Parameter(torch.tensor([5.0]))
 
         self.enc_mlp = MLP(params.encoding_cell_size * 2 +
@@ -84,12 +84,12 @@ class LinearVAECell(nn.Module):
 
     def encode(self, inputs, h_prev):
         enc_inputs = torch.cat(
-            [h_prev, inputs],
-            1)  # [batch, encoding_cell_size * 2 + state_cell_size]
-        net1 = self.enc_mlp(enc_inputs)
-        logits_z = self.enc_fc(net1)
-        q_z = F.softmax(logits_z, dim=1)
-        log_q_z = F.log_softmax(logits_z, dim=1)
+            [h_prev, inputs], 1
+        )  # [batch_size, encoding_cell_size * 2 + state_cell_size] (40, 810)
+        net1 = self.enc_mlp(enc_inputs)  # (40, 200)
+        logits_z = self.enc_fc(net1)  # (40, 10)
+        q_z = F.softmax(logits_z, dim=1)  # (40, 10)
+        log_q_z = F.log_softmax(logits_z, dim=1)  # (40, 10)
 
         return logits_z, q_z, log_q_z
 
@@ -99,52 +99,55 @@ class LinearVAECell(nn.Module):
                dec_input_embedding,
                prev_embeddings=None,
                input_query=None):
-        net2 = self.dec_mlp(z_samples)  # [batch, 200]
+        net2 = self.dec_mlp(z_samples)  # [batch_size, 200]
         dec_input_1 = torch.unsqueeze(
             torch.cat([h_prev, net2], dim=1),
-            dim=0)  # [num_layer(1), batch, state_cell_size + 200]
+            dim=0)  # [num_layer(1), batch_size, state_cell_size + 200] (1, 40, 210)
         dec_input_embedding[0] = dec_input_embedding[
-            0][:, 0:-1, :]  # batch x (40 - 1) x 300
-        dec_input_embedding[1] = dec_input_embedding[1][:, 0:-1, :]
+            0][:, 0:
+               -1, :]  # [batch_size, (max_utt_len - 1), embed_size] (40, 49, 300)
+        dec_input_embedding[1] = dec_input_embedding[
+            1][:, 0:
+               -1, :]  # [batch_size, (max_utt_len - 1), embed_size] (40, 49, 300)
 
         # decoder without structured attention
         if not params.use_struct_attention:
             dec_outs_1, final_state_1 = self.dec_rnn_1(
                 dec_input_embedding[0], (dec_input_1, dec_input_1))
-            dec_outs_1 = self.dropout(dec_outs_1)
-            dec_outs_1 = self.dec_fc_1(dec_outs_1)
+            dec_outs_1 = self.dropout(dec_outs_1)  # [batch_size, (max_utt_len - 1), state_cell_size + 200] (40, 49, 210)
+            dec_outs_1 = self.dec_fc_1(dec_outs_1)  # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
 
             dec_input_2_h = torch.cat(
                 [dec_input_1, final_state_1[0]],
-                dim=2)  # [1, batch, 2 * (state_cell_size + 200)]
+                dim=2)  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
 
             dec_input_2_c = torch.cat(
                 [dec_input_1, final_state_1[1]],
-                dim=2)  # [1, batch, 2 * (state_cell_size + 200)]
+                dim=2)  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
             dec_outs_2, final_state_2 = self.dec_rnn_2(
                 dec_input_embedding[1], (dec_input_2_h, dec_input_2_c))
-            dec_outs_2 = self.dropout(dec_outs_2)
-            dec_outs_2 = self.dec_fc_2(dec_outs_2)
+            dec_outs_2 = self.dropout(dec_outs_2)  # [batch_size, (max_utt_len - 1), 2 * (state_cell_size + 200)] (40, 49, 420)
+            dec_outs_2 = self.dec_fc_2(dec_outs_2) # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
         # decoder with structured attention
         else:
-            batch_size = dec_input_embedding[0].size(0)
-            sentence_length = dec_input_embedding[0].size(1)
+            batch_size = dec_input_embedding[0].size(0)  # (40)
+            sentence_length = dec_input_embedding[0].size(1)  # (49)
 
             all_outs_1 = torch.zeros(
                 batch_size, sentence_length, 210
-            )  # 200 + params.n_state # 200 + params.n_state, record the output
+            )  # (40, 49, 210)
             if params.use_cuda and torch.cuda.is_available():
                 all_outs_1 = all_outs_1.cuda()
-            hidden_input_1 = dec_input_1  # LSTM : H
-            cell_input_1 = dec_input_1  # LSTM : C
+            hidden_input_1 = dec_input_1  # LSTM : H (1, 40, 210)
+            cell_input_1 = dec_input_1  # LSTM : C (1, 40, 210)
             utt_index = prev_embeddings.size(1)
-            X_prev = input_query[:, :utt_index, :, :]  # batch x utt x 2 x 210
+            X_prev = input_query[:, :utt_index, :, :]  # [batch_size, 0:utt_index, 2, 210]
             X_cur = input_query[:, 1:(utt_index +
-                                      1), :, :]  # batch x utt x 2 x 210
+                                      1), :, :]   # [batch_size, 1:utt_index+1, 2, 210]
             X_prev_3d = X_prev.contiguous().view(params.batch_size * utt_index,
                                                  2, 210)
-            X_cur_3d = X_cur.contiguous().view(params.batch_size * utt_index, 2,
-                                               210)
+            X_cur_3d = X_cur.contiguous().view(params.batch_size * utt_index,
+                                               2, 210)
 
             # X^K dot X^{K+1}
             X_prev_times_X_cur = X_prev_3d.bmm(X_cur_3d.transpose(1, 2)).view(
@@ -183,13 +186,14 @@ class LinearVAECell(nn.Module):
                                                        lengths=lengths)
                     marginals_one_prob = dist.marginals.sum(-1)[:, :, 1]
                     marginals_one_prob = marginals_one_prob.unsqueeze(1)
-                    context = marginals_one_prob.bmm(prev_embeddings).squeeze(1)
+                    context = marginals_one_prob.bmm(prev_embeddings).squeeze(
+                        1)
                     context = context / utt_index  # normalize attention)
                 dec_input_new = torch.cat(
                     [dec_input_embedding[0][:, t, :], context],
                     dim=1).unsqueeze(1)
 
-                ##RNN one word at one time
+                # decode one word at one time
                 temp_out_1, (hidden_input_1, cell_input_1) = self.dec_rnn_1(
                     dec_input_new, (hidden_input_1, cell_input_1))
                 all_outs_1[:, t, :] = temp_out_1.squeeze(1)
@@ -240,7 +244,8 @@ class LinearVAECell(nn.Module):
                                                        lengths=lengths)
                     marginals_one_prob = dist.marginals.sum(-1)[:, :, 1]
                     marginals_one_prob = marginals_one_prob.unsqueeze(1)
-                    context = marginals_one_prob.bmm(prev_embeddings).squeeze(1)
+                    context = marginals_one_prob.bmm(prev_embeddings).squeeze(
+                        1)
                     context = context / utt_index  # normalize attention
 
                 dec_input_new = torch.cat(
@@ -259,17 +264,18 @@ class LinearVAECell(nn.Module):
         # for computing BOW loss
         bow_logits1 = bow_logits2 = None
         if params.with_BOW:
-            bow_fc1 = self.bow_fc1(torch.squeeze(dec_input_1, dim=0))
+            bow_fc1 = self.bow_fc1(torch.squeeze(dec_input_1, dim=0))  # (40, 400)
             bow_fc1 = torch.tanh(bow_fc1)
             if params.dropout not in (None, 0):
                 bow_fc1 = self.dropout(bow_fc1)
-            bow_logits1 = self.bow_project1(bow_fc1)  # [batch_size, vocab_size]
+            bow_logits1 = self.bow_project1(
+                bow_fc1)  # [batch_size, max_vocab_cnt] (40, 1770)
 
-            bow_fc2 = self.bow_fc2(torch.squeeze(dec_input_2_h, dim=0))
+            bow_fc2 = self.bow_fc2(torch.squeeze(dec_input_2_h, dim=0))  # (40, 400)
             bow_fc2 = torch.tanh(bow_fc2)
             if params.dropout not in (None, 0):
                 bow_fc2 = self.dropout(bow_fc2)
-            bow_logits2 = self.bow_project2(bow_fc2)
+            bow_logits2 = self.bow_project2(bow_fc2)  # [batch_size, max_vocab_cnt] (40, 1770)
         return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
 
     def forward(self,
@@ -288,6 +294,8 @@ class LinearVAECell(nn.Module):
         else:
             h_prev = state
         # encode
+        # inputs: [batch_size, encoding_cell_size * 2] (40, 800)
+        # h_rev: [batch_size, n_state] (40, 10)
         logits_z, q_z, log_q_z = self.encode(inputs, h_prev)
 
         # sample
@@ -309,13 +317,13 @@ class LinearVAECell(nn.Module):
             log_p_z = torch.log(p_z + 1e-20)
 
         else:
-            net3 = self.transit_mlp(h_prev)
-            p_z = self.transit_fc(net3)
+            net3 = self.transit_mlp(h_prev)  # h_prev: [batch_size, n_state], net3: [batch_size, 100]
+            p_z = self.transit_fc(net3)  # [batch_size, n_state]
             p_z = F.softmax(p_z, dim=1)
             log_p_z = torch.log(p_z + 1e-20)
 
         recur_input = torch.cat([net2, inputs],
-                                dim=1)  # [batch, encoding_cell_size * 2 + 200]
+                                dim=1)  # [batch_size, encoding_cell_size * 2 + 200]
         next_state = self.state_rnn(recur_input, state)
 
         losses = BPR_BOW_loss(output_tokens,

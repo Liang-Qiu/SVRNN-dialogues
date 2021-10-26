@@ -2,7 +2,7 @@
 """
 max_epoch = 60  # max number of epoch of training
 use_cuda = False
-gpu_idx = 7
+gpu_idx = 0
 seed = 233
 max_vocab_cnt = 1770
 word2vec_path = None  # The path to word2vec. Can be None.

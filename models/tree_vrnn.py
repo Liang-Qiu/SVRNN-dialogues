@@ -1,13 +1,8 @@
-from __future__ import print_function
-from __future__ import division
-
 import sys
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import matplotlib
 
 sys.path.append("..")
 import params

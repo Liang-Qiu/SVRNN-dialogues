@@ -1,14 +1,9 @@
 """Torch version of https://github.com/wyshi/Unsupervised-Structure-Learning
 """
-from __future__ import print_function
-from __future__ import division
-
 import sys
 
 import torch
 from torch import nn
-import torch.nn.functional as F
-import torch_struct
 
 sys.path.append("..")
 import params
@@ -19,11 +14,11 @@ class LinearVRNN(nn.Module):
     """
     VRNN with gumbel-softmax
     """
-
     def __init__(self):
         super(LinearVRNN, self).__init__()
 
-        self.embedding = nn.Embedding(params.max_vocab_cnt, params.embed_size)
+        self.embedding = nn.Embedding(params.max_vocab_cnt,
+                                      params.embed_size)  # (1770, 300)
 
         if params.cell_type == "gru":
             self.sent_rnn = nn.GRU(params.embed_size,
@@ -32,19 +27,20 @@ class LinearVRNN(nn.Module):
                                    batch_first=True)
             self.vae_cell = LinearVAECell(state_is_tuple=False)
         else:
-            self.sent_rnn = nn.LSTM(params.embed_size,
-                                    params.encoding_cell_size,
-                                    params.num_layer,
-                                    batch_first=True)
+            self.sent_rnn = nn.LSTM(
+                params.embed_size,  # 300
+                params.encoding_cell_size,  # 400
+                params.num_layer,  # 1
+                batch_first=True)
             self.vae_cell = LinearVAECell(state_is_tuple=True)
         if params.dropout not in (None, 0):
-            self.dropout = nn.Dropout(params.dropout)
+            self.dropout = nn.Dropout(params.dropout)  # 0.5
         if params.use_struct_attention:
-            '''
-            Input Memory Net: Joint Embedding to Query Matrix [batch, length, params.encoding_cell_size * 2] -> [batch, length, 210 * 2]
-            '''
-            self.input_memory = nn.Linear(params.encoding_cell_size * 2,
-                                          (200 + params.n_state) * 2)
+            # Input Memory Net: Joint Embedding to Query Matrix
+            # [batch, length, params.encoding_cell_size * 2] -> [batch, length, 210 * 2]
+            self.input_memory = nn.Linear(
+                params.encoding_cell_size * 2,  # 400 * 2
+                (200 + params.n_state) * 2)  # (200 + 10) * 2
 
     def forward(self,
                 usr_input_sent,
@@ -53,35 +49,47 @@ class LinearVRNN(nn.Module):
                 usr_input_mask,
                 sys_input_mask,
                 training=True):
-        ########################## sentence embedding  ##################
-        # print(usr_input_sent)
-        # print(sys_input_sent)
-
+        #------------------------- utterance embedding -------------------------#
         usr_input_embedding = self.embedding(
-            usr_input_sent)  # (16, 10, 40, 300)
+            usr_input_sent
+        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
         usr_input_embedding = usr_input_embedding.view(
-            [-1, params.max_utt_len, params.embed_size])  # (160, 40, 300)
+            [-1, params.max_utt_len, params.embed_size]
+        )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
 
         sys_input_embedding = self.embedding(
-            sys_input_sent)  # (16, 10, 40, 300)
+            sys_input_sent
+        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
         sys_input_embedding = sys_input_embedding.view(
-            [-1, params.max_utt_len, params.embed_size])  # (160, 40, 300)
+            [-1, params.max_utt_len, params.embed_size]
+        )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
 
-        usr_sent_mask = torch.sign(usr_input_mask.view(
-            -1, params.max_utt_len))  # (160, 40)
-        sys_sent_mask = torch.sign(sys_input_mask.view(-1, params.max_utt_len))
-        usr_sent_len = torch.sum(usr_sent_mask, dim=1)  # (160)
-        sys_sent_len = torch.sum(sys_sent_mask, dim=1)  # (160)
+        usr_sent_mask = torch.sign(
+            usr_input_mask.view(-1, params.max_utt_len)
+        )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+        sys_sent_mask = torch.sign(
+            sys_input_mask.view(-1, params.max_utt_len)
+        )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+        usr_sent_len = torch.sum(usr_sent_mask,
+                                 dim=1)  # [batch_size * max_dialog_len] (520)
+        sys_sent_len = torch.sum(sys_sent_mask,
+                                 dim=1)  # [batch_size * max_dialog_len] (520)
+        # TODO: replace with BERT embedding
         if params.cell_type == "gru":
             usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
             sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)
         else:
-            usr_sent_embeddings, (_, _) = self.sent_rnn(usr_input_embedding)
-            sys_sent_embeddings, (_, _) = self.sent_rnn(sys_input_embedding)
+            usr_sent_embeddings, (_, _) = self.sent_rnn(
+                usr_input_embedding
+            )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
+
+            sys_sent_embeddings, (_, _) = self.sent_rnn(
+                sys_input_embedding
+            )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
 
         usr_sent_embedding = torch.zeros(
             params.batch_size * params.max_dialog_len,
-            params.encoding_cell_size)
+            params.encoding_cell_size)  # (520, 400)
         sys_sent_embedding = torch.zeros(
             params.batch_size * params.max_dialog_len,
             params.encoding_cell_size)
@@ -91,46 +99,53 @@ class LinearVRNN(nn.Module):
 
         for i in range(usr_sent_embedding.shape[0]):
             if usr_sent_len[i] > 0:
-                usr_sent_embedding[i] = usr_sent_embeddings[i, usr_sent_len[i] -
+                usr_sent_embedding[i] = usr_sent_embeddings[i,
+                                                            usr_sent_len[i] -
                                                             1, :]
             if sys_sent_len[i] > 0:
-                sys_sent_embedding[i] = sys_sent_embeddings[i, sys_sent_len[i] -
+                sys_sent_embedding[i] = sys_sent_embeddings[i,
+                                                            sys_sent_len[i] -
                                                             1, :]
 
         usr_sent_embedding = usr_sent_embedding.view(
-            -1, params.max_dialog_len,
-            params.encoding_cell_size)  # (16, 10, 400)
+            -1, params.max_dialog_len, params.encoding_cell_size
+        )  # [batch_size, max_dialog_len, encoding_cell_size] (40, 13, 400)
         sys_sent_embedding = sys_sent_embedding.view(
-            -1, params.max_dialog_len,
-            params.encoding_cell_size)  # (16, 10, 400)
+            -1, params.max_dialog_len, params.encoding_cell_size
+        )  # [batch_size, max_dialog_len, encoding_cell_size] (40, 13, 400)
 
         if params.dropout not in (None, 0):
             usr_sent_embedding = self.dropout(usr_sent_embedding)
             sys_sent_embedding = self.dropout(sys_sent_embedding)
 
         joint_embedding = torch.cat(
-            [usr_sent_embedding, sys_sent_embedding],
-            dim=2)  # (batch, dialog_len, encoding_cell_size * 2) (16, 10, 800)
+            [usr_sent_embedding, sys_sent_embedding], dim=2
+        )  # [batch_size, max_dialog_len, encoding_cell_size * 2] (40, 13, 800)
 
         # Pytorch-struct
         if params.use_struct_attention:
             input_query = self.input_memory(joint_embedding)
-            input_query = input_query.view(params.batch_size, -1, 2,
-                                           200 + params.n_state)
+            input_query = input_query.view(
+                params.batch_size, -1, 2,
+                200 + params.n_state)  # [batch_size, max_dialog_len, 2, 210]
         else:
             input_query = None
 
-        ########################### state level ############################
+        #----------------- dialogue turn (state) recurrance -------------------#
         dec_input_embedding_usr = self.embedding(
-            usr_input_sent)  # (16, 10, 40, 300)
+            usr_input_sent
+        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
         dec_input_embedding_sys = self.embedding(
-            sys_input_sent)  # (16, 10, 40, 300)
-        dec_input_embedding = [dec_input_embedding_usr, dec_input_embedding_sys]
+            sys_input_sent
+        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
+        dec_input_embedding = [
+            dec_input_embedding_usr, dec_input_embedding_sys
+        ]
 
         dec_seq_lens_usr = torch.sum(torch.sign(usr_input_mask),
-                                     dim=2)  # (16, 10)
+                                     dim=2)  # (40, 13)
         dec_seq_lens_sys = torch.sum(torch.sign(sys_input_mask),
-                                     dim=2)  # (16, 10)
+                                     dim=2)  # (40, 13)
         dec_seq_lens = [dec_seq_lens_usr, dec_seq_lens_sys]
 
         output_tokens = [usr_input_sent, sys_input_sent]
@@ -145,26 +160,20 @@ class LinearVRNN(nn.Module):
         bow_logits_1 = []
         bow_logits_2 = []
         if params.cell_type == "gru":
-            state = torch.zeros(params.batch_size, params.state_cell_size)
+            state = torch.zeros(params.batch_size,
+                                params.state_cell_size)  # (40, 10)
             if params.use_cuda and torch.cuda.is_available():
                 state = state.cuda()
         else:
-            h = c = torch.zeros(params.batch_size, params.state_cell_size)
+            h = c = torch.zeros(params.batch_size,
+                                params.state_cell_size)  # (40, 10)
             if params.use_cuda and torch.cuda.is_available():
                 h = h.cuda()
                 c = c.cuda()
             state = (h, c)
+        # TODO: this for loop has not be parallelized
         for utt in range(params.max_dialog_len):
-            # print(utt)
-            # print("prev_z")
-            # print(prev_z)
-
             inputs = joint_embedding[:, utt, :]
-            # print("input token")
-            # print(usr_input_sent[:, utt, :])
-            # print("input_embedding")
-            # print(inputs)
-
             dec_input_emb = [
                 dec_input_embedding[0][:, utt, :, :],
                 dec_input_embedding[1][:, utt, :, :]
@@ -194,8 +203,7 @@ class LinearVRNN(nn.Module):
             # stop gradient
             zts_onehot = (zts_onehot - z_samples).detach() + z_samples
             prev_z = zts_onehot
-            # TODO: check whether have converged to local minima
-
+            # TODO: check whether have converged to local minimas
             elbo_ts.append(losses[0])
             rc_losses.append(losses[1])
             kl_losses.append(losses[2])

@@ -27,12 +27,12 @@ First download the Ubuntu Chat Corpus from [here](https://daviduthus.org/UCC/).
 Then generate samples from the corpus by running
 
 ```bash
-make dataset data_path=path/to/your/ubuntu/corpus
+make ubuntu
 ```
 
 ### MultiWOZ
 
-Unzip the dataset `data/MultiWOZ_2.1.zip`
+Unzip the dataset `data/MultiWOZ_2.1.zip` first, then run
 
 ```bash
 make mwoz

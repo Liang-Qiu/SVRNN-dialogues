@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import random
 import os
 import time
@@ -54,6 +52,7 @@ def train(model, train_loader, optimizer, writer, epoch):
         batch = train_loader.next_batch()
         if batch is None:
             break
+
         local_t += 1
         loss = model(*batch)
         # use .data to free the loss Variable
