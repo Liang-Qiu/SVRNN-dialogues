@@ -3,6 +3,8 @@ import re
 
 import torch
 import torch.nn as nn
+from sklearn import metrics
+from loguru import logger
 
 sys.path.append("..")
 import params
@@ -179,3 +181,15 @@ def print_loss(prefix, loss_names, losses, postfix):
 
     print(template % tuple(values))
     sys.stdout.flush()
+
+def clustering_report_gt(labels_true, labels_pred):
+    rand_score = metrics.rand_score(labels_true, labels_pred)
+    logger.info(f"RI: {rand_score:.3f}")
+
+    adjust_rand_score = metrics.adjusted_rand_score(labels_true, labels_pred)
+    logger.info(f"ARI: {adjust_rand_score:.3f}")
+
+    adjusted_mutual_info_score = metrics.adjusted_mutual_info_score(
+        labels_true, labels_pred)
+    logger.info(f"AMI: {adjusted_mutual_info_score:.3f}")
+

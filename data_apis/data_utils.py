@@ -30,7 +30,11 @@ class LongDataLoader(object):
     def _prepare_batch(self, cur_grid, prev_grid):
         raise NotImplementedError("Have to override prepare batch")
 
-    def epoch_init(self, batch_size, shuffle=True, intra_shuffle=True):
+    def epoch_init(self,
+                   batch_size,
+                   shuffle=True,
+                   intra_shuffle=True,
+                   no_leftover=False):
         assert len(self.indexes) == self.data_size and len(
             self.data_lens) == self.data_size
 
@@ -44,6 +48,10 @@ class LongDataLoader(object):
         for i in range(temp_num_batch):
             self.batch_indexes.append(
                 self.indexes[i * self.batch_size:(i + 1) * self.batch_size])
+        # No left over
+        if no_leftover:
+            self.batch_indexes.append(self.indexes[(temp_num_batch *
+                                                    self.batch_size):])
 
         left_over = self.data_size - temp_num_batch * batch_size
 
@@ -83,10 +91,6 @@ class LongDataLoader(object):
     def next_batch(self):
         if self.ptr < self.num_batch:
             current_index_list = self.batch_indexes[self.ptr]
-            # if self.ptr > 0:
-            #     prev_grid = self.grid_indexes[self.ptr-1]
-            # else:
-            #     prev_grid = None
             self.ptr += 1
             return self._prepare_batch(current_index_list)
         else:
@@ -115,8 +119,9 @@ class SWDADataLoader(LongDataLoader):
         self.max_dialog_size = max_dialog_len
         self.labeled = labeled
         self.device = device
-        logger.info("Max dialog len %d and min dialog len %d and avg len %f" %
-              (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
+        logger.info(
+            "Max dialog len %d and min dialog len %d and avg len %f" %
+            (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
         # self.indexes = list(np.argsort(all_lens))
         self.indexes = list(range(self.data_size))
         np.random.shuffle(self.indexes)

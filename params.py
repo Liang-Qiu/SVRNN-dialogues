@@ -43,7 +43,6 @@ temperature = 0.5  # temperature for gumbel softmax
 # Network general
 cell_type = "lstm"  # gru or lstm
 encoding_cell_size = 400  # size of the rnn
-state_cell_size = n_state
 embed_size = 300  # word embedding size
 max_utt_len = 50  # max number of words in an utterance
 max_dialog_len = 13  # max number of turns in a dialog

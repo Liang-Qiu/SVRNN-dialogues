@@ -37,7 +37,10 @@ class MultiWOZCorpus(object):
 
         data = json.load(open(self._path, "r"))
         data = data[params.test_domain]
-        self.train_corpus = self.process(data)
+        self.train_corpus = self.process(data, labeled=self.labeled)
+        logger.info(
+            f"Number of dialogs in train set: {len(self.train_corpus[self.dialog_id])}"
+        )
         logger.info("Printing dialog examples from train set")
         for i in range(3):
             dialog = self.train_corpus[self.dialog_id][i]
@@ -56,7 +59,6 @@ class MultiWOZCorpus(object):
 
         for dial in data:
             dialog = []
-            dialog_labels = []
             dial_text = dial["text"]
             for turn in dial_text:
                 usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
@@ -70,15 +72,12 @@ class MultiWOZCorpus(object):
                 all_lenes.extend([len(sys_utt)])
 
                 dialog.append([usr_utt, sys_utt])
-                if labeled:
-                    dialog_labels.append(turn[4])
-
             new_dialog.append(dialog)
             if labeled:
-                new_labels.append(dialog_labels)
+                new_labels.append(dial["label"])
 
         logger.info("Max utt len %d, mean utt len %.2f" %
-              (np.max(all_lenes), float(np.mean(all_lenes))))
+                    (np.max(all_lenes), float(np.mean(all_lenes))))
 
         if labeled:
             return new_dialog, new_utts, new_labels
@@ -146,3 +145,18 @@ class MultiWOZCorpus(object):
             logger.info(f"Example ID %d: %s" % (i, id_train[i]))
 
         return {'train': id_train}
+
+    def get_labels(self):
+        def _to_label_corpus(data):
+            results = []
+            for label in data:
+                padded_label = label
+                for _ in range(params.max_dialog_len - len(label)):  # padding
+                    padded_label.append(-1)
+                results.append(padded_label[:params.max_dialog_len])
+            return results
+
+        if self.labeled:
+            id_labeled = _to_label_corpus(self.train_corpus[self.label_id])
+
+        return {'labels': id_labeled}

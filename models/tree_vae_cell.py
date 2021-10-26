@@ -12,7 +12,6 @@ import params
 
 
 class TreeVAECell(nn.Module):
-
     def __init__(self, state_is_tuple=True):
         super(TreeVAECell, self).__init__()
 
@@ -20,7 +19,7 @@ class TreeVAECell(nn.Module):
         # temperature of gumbel_softmax
         self.tau = nn.Parameter(torch.tensor([5.0]))
 
-        self.enc_mlp = MLP(params.encoding_cell_size + params.state_cell_size,
+        self.enc_mlp = MLP(params.encoding_cell_size + params.n_state,
                            [400, 200],
                            dropout_rate=params.dropout)
         self.enc_fc = nn.Linear(200, params.n_state)
@@ -31,37 +30,35 @@ class TreeVAECell(nn.Module):
 
         self.dec_fc = nn.Linear(200 + params.n_state, params.max_vocab_cnt)
 
-        self.bow_fc = nn.Linear(params.state_cell_size + 200, 400)
+        self.bow_fc = nn.Linear(params.n_state + 200, 400)
         self.bow_project = nn.Linear(400, params.max_vocab_cnt)
 
         if params.with_direct_transition:
             self.transit_mlp = MLP(params.n_state, [100, 100],
                                    dropout_rate=params.dropout)
         else:
-            self.transit_mlp = MLP(params.state_cell_size, [100, 100],
+            self.transit_mlp = MLP(params.n_state, [100, 100],
                                    dropout_rate=params.dropout)
         self.transit_fc = nn.Linear(100, params.n_state)
 
         if params.cell_type == "gru":
             self.state_rnn = nn.GRUCell(params.encoding_cell_size + 200,
-                                        params.state_cell_size)
+                                        params.n_state)
         else:
             self.state_rnn = nn.LSTMCell(params.encoding_cell_size + 200,
-                                         params.state_cell_size)
+                                         params.n_state)
         if params.dropout not in (None, 0):
             self.dropout = nn.Dropout(params.dropout)
         if params.use_struct_attention:
-            self.attn = Attn(params.attention_type,
-                             params.state_cell_size + 200,
+            self.attn = Attn(params.attention_type, params.n_state + 200,
                              params.encoding_cell_size * 2)
             self.attn_fc = nn.Linear(params.encoding_cell_size * 2,
-                                     params.state_cell_size + 200)
+                                     params.n_state + 200)
         else:
-            self.attn = Attn(params.attention_type,
-                             params.state_cell_size + 200,
+            self.attn = Attn(params.attention_type, params.n_state + 200,
                              params.encoding_cell_size)
             self.attn_fc = nn.Linear(params.encoding_cell_size,
-                                     params.state_cell_size + 200)
+                                     params.n_state + 200)
 
     def encode(self, inputs, h_prev):
         enc_inputs = torch.cat([h_prev, inputs],

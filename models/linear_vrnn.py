@@ -4,6 +4,7 @@ import sys
 
 import torch
 from torch import nn
+from loguru import logger
 
 sys.path.append("..")
 import params
@@ -160,13 +161,11 @@ class LinearVRNN(nn.Module):
         bow_logits_1 = []
         bow_logits_2 = []
         if params.cell_type == "gru":
-            state = torch.zeros(params.batch_size,
-                                params.state_cell_size)  # (40, 10)
+            state = torch.zeros(params.batch_size, params.n_state)  # (40, 10)
             if params.use_cuda and torch.cuda.is_available():
                 state = state.cuda()
         else:
-            h = c = torch.zeros(params.batch_size,
-                                params.state_cell_size)  # (40, 10)
+            h = c = torch.zeros(params.batch_size, params.n_state)  # (40, 10)
             if params.use_cuda and torch.cuda.is_available():
                 h = h.cuda()
                 c = c.cuda()

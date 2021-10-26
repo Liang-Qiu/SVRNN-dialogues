@@ -3,6 +3,7 @@ import os
 import time
 import argparse
 import sys
+import json
 
 import pickle as pkl
 import torch
@@ -15,15 +16,19 @@ from loguru import logger
 from models.linear_vrnn import LinearVRNN
 from data_apis.data_utils import SWDADataLoader
 from data_apis.MultiWOZCorpus import MultiWOZCorpus
-from utils.loss import print_loss
+from utils.loss import print_loss, clustering_report_gt
 import params
 
 
 def get_dataset(device):
-    api = MultiWOZCorpus(params.mwoz_path, max_vocab_cnt=params.max_vocab_cnt)
+    api = MultiWOZCorpus(params.mwoz_path,
+                         max_vocab_cnt=params.max_vocab_cnt,
+                         labeled=True)
 
     dial_corpus = api.get_dialog_corpus()
     train_dial = dial_corpus.get("train")
+
+    labels_true = api.get_labels().get("labels")
 
     # convert to numeric input outputs
     train_loader = SWDADataLoader("Train",
@@ -32,9 +37,9 @@ def get_dataset(device):
                                   params.max_dialog_len,
                                   device=device)
     if api.word2vec is not None:
-        return train_loader, np.array(api.word2vec)
+        return train_loader, labels_true, np.array(api.word2vec)
     else:
-        return train_loader, None
+        return train_loader, labels_true, None
 
 
 def train(model, train_loader, optimizer, writer, epoch):
@@ -106,6 +111,8 @@ def decode(model, data_loader):
         batch = data_loader.next_batch()
         if batch is None:
             break
+        # No left over
+        params.batch_size = len(batch[0])
         result = model(*batch, training=False)
         results.append(result)
     return results
@@ -172,12 +179,17 @@ def main(args):
         device = torch.device("cuda:" + str(params.gpu_idx))
         torch.cuda.set_device(device)
         logger.info("Using GPU: %d" % torch.cuda.current_device())
-        sys.stdout.flush()
     else:
         device = torch.device("cpu")
         logger.info("Using CPU for training")
 
-    train_loader, word2vec = get_dataset(device)
+    train_loader, labels_true, word2vec = get_dataset(device)
+
+    with open(params.mwoz_path, "r") as f:
+        data = json.load(f)
+        dialogs = data[params.test_domain]
+        params.n_state = dialogs[0]["num_label"]
+        logger.warning(f"True number of states: {params.n_state}")
 
     if args.forward_only or args.resume:
         log_dir = os.path.join(params.log_dir, "multiwoz", args.ckpt_dir)
@@ -201,11 +213,10 @@ def main(args):
 
     if word2vec is not None and not args.forward_only:
         logger.info("Load word2vec")
-        sys.stdout.flush()
         model.embedding.from_pretrained(torch.from_numpy(word2vec),
                                         freeze=False)
 
-    # # write config to a file for logging
+    # write config to a file for logging
     if not args.forward_only:
         variables = dir(params)
         param_vars = []
@@ -216,24 +227,18 @@ def main(args):
             var: getattr(params, var)
             for var in param_vars if getattr(params, var) != None
         }
-        logger.info(f"Parameters: {params_dict}")
-        # writer.add_hparams(params_dict, {"NA": 0})
 
         writer.add_text('Hyperparameters', pp(params, output=False))
 
     last_epoch = 0
     if args.resume:
         logger.info("Resuming training from %s" % checkpoint_path)
-        sys.stdout.flush()
         state = torch.load(checkpoint_path, map_location=device)
         model.load_state_dict(state['state_dict'])
         optimizer.load_state_dict(state['optimizer'])
         last_epoch = state['epoch']
 
     # Train and evaluate
-    patience = params.max_epoch
-    dev_loss_threshold = np.inf
-    best_dev_loss = np.inf
     if not args.forward_only:
         start = time.time()
         for epoch in range(last_epoch, params.max_epoch):
@@ -250,7 +255,6 @@ def main(args):
             # still save the best train model
             if args.save_model:
                 logger.info("Saving the model")
-                sys.stdout.flush()
                 state = {
                     'epoch': epoch,
                     'state_dict': model.state_dict(),
@@ -265,13 +269,33 @@ def main(args):
     else:
         state = torch.load(checkpoint_path, map_location=device)
         logger.info("Load model from %s" % checkpoint_path)
-        sys.stdout.flush()
         model.load_state_dict(state['state_dict'])
-        train_loader.epoch_init(params.batch_size, shuffle=False)
+        train_loader.epoch_init(params.batch_size,
+                                shuffle=False,
+                                no_leftover=True)
         results = decode(model, train_loader)
 
         with open(os.path.join(log_dir, "result.pkl"), "wb") as fh:
             pkl.dump(results, fh)
+        logger.info(
+            f"Wrote the decoding results into {os.path.join(log_dir, 'result.pkl')}"
+        )
+        # results = pkl.load(open(os.path.join(log_dir, "result.pkl"), "rb"))
+
+        # Evaluate the results with labels using clustering metrics
+        labels_pred = []
+        for r in results:
+            labels_pred.extend(np.argmax(r[2], axis=-1).tolist())
+
+        new_labels_pred, new_labels_true = [], []
+        for i in range(len(labels_true)):
+            for j in range(len(labels_true[i])):
+                if labels_true[i][j] != -1:
+                    new_labels_pred.append(labels_pred[i][j])
+                    new_labels_true.append(labels_true[i][j])
+        assert len(new_labels_pred) == len(new_labels_true)
+        clustering_report_gt(new_labels_true, new_labels_pred)
+
     writer.close()
 
 

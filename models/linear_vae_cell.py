@@ -22,8 +22,8 @@ class LinearVAECell(nn.Module):
         # TODO: add annealing (->0)
         self.tau = nn.Parameter(torch.tensor([params.temperature]))
 
-        self.enc_mlp = MLP(params.encoding_cell_size * 2 +
-                           params.state_cell_size, [400, 200],
+        self.enc_mlp = MLP(params.encoding_cell_size * 2 + params.n_state,
+                           [400, 200],
                            dropout_rate=params.dropout)
         self.enc_fc = nn.Linear(200, params.n_state)
         self.dec_mlp = MLP(params.n_state, [200, 200],
@@ -61,24 +61,24 @@ class LinearVAECell(nn.Module):
             self.dec_fc_2 = nn.Linear(200 + params.n_state,
                                       params.max_vocab_cnt)
 
-        self.bow_fc1 = nn.Linear(params.state_cell_size + 200, 400)
+        self.bow_fc1 = nn.Linear(params.n_state + 200, 400)
         self.bow_project1 = nn.Linear(400, params.max_vocab_cnt)
-        self.bow_fc2 = nn.Linear(2 * (params.state_cell_size + 200), 400)
+        self.bow_fc2 = nn.Linear(2 * (params.n_state + 200), 400)
         self.bow_project2 = nn.Linear(400, params.max_vocab_cnt)
         if params.with_direct_transition:
             self.transit_mlp = MLP(params.n_state, [100, 100],
                                    dropout_rate=params.dropout)
         else:
-            self.transit_mlp = MLP(params.state_cell_size, [100, 100],
+            self.transit_mlp = MLP(params.n_state, [100, 100],
                                    dropout_rate=params.dropout)
         self.transit_fc = nn.Linear(100, params.n_state)
 
         if params.cell_type == "gru":
             self.state_rnn = nn.GRUCell(params.encoding_cell_size * 2 + 200,
-                                        params.state_cell_size)
+                                        params.n_state)
         else:
             self.state_rnn = nn.LSTMCell(params.encoding_cell_size * 2 + 200,
-                                         params.state_cell_size)
+                                         params.n_state)
         if params.dropout not in (None, 0):
             self.dropout = nn.Dropout(params.dropout)
 
@@ -101,8 +101,8 @@ class LinearVAECell(nn.Module):
                input_query=None):
         net2 = self.dec_mlp(z_samples)  # [batch_size, 200]
         dec_input_1 = torch.unsqueeze(
-            torch.cat([h_prev, net2], dim=1),
-            dim=0)  # [num_layer(1), batch_size, state_cell_size + 200] (1, 40, 210)
+            torch.cat([h_prev, net2], dim=1), dim=0
+        )  # [num_layer(1), batch_size, state_cell_size + 200] (1, 40, 210)
         dec_input_embedding[0] = dec_input_embedding[
             0][:, 0:
                -1, :]  # [batch_size, (max_utt_len - 1), embed_size] (40, 49, 300)
@@ -114,40 +114,48 @@ class LinearVAECell(nn.Module):
         if not params.use_struct_attention:
             dec_outs_1, final_state_1 = self.dec_rnn_1(
                 dec_input_embedding[0], (dec_input_1, dec_input_1))
-            dec_outs_1 = self.dropout(dec_outs_1)  # [batch_size, (max_utt_len - 1), state_cell_size + 200] (40, 49, 210)
-            dec_outs_1 = self.dec_fc_1(dec_outs_1)  # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
+            dec_outs_1 = self.dropout(
+                dec_outs_1
+            )  # [batch_size, (max_utt_len - 1), state_cell_size + 200] (40, 49, 210)
+            dec_outs_1 = self.dec_fc_1(
+                dec_outs_1
+            )  # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
 
             dec_input_2_h = torch.cat(
-                [dec_input_1, final_state_1[0]],
-                dim=2)  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
+                [dec_input_1, final_state_1[0]], dim=2
+            )  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
 
             dec_input_2_c = torch.cat(
-                [dec_input_1, final_state_1[1]],
-                dim=2)  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
+                [dec_input_1, final_state_1[1]], dim=2
+            )  # [num_layer(1), batch_size, 2 * (state_cell_size + 200)] (1, 40, 420)
             dec_outs_2, final_state_2 = self.dec_rnn_2(
                 dec_input_embedding[1], (dec_input_2_h, dec_input_2_c))
-            dec_outs_2 = self.dropout(dec_outs_2)  # [batch_size, (max_utt_len - 1), 2 * (state_cell_size + 200)] (40, 49, 420)
-            dec_outs_2 = self.dec_fc_2(dec_outs_2) # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
+            dec_outs_2 = self.dropout(
+                dec_outs_2
+            )  # [batch_size, (max_utt_len - 1), 2 * (state_cell_size + 200)] (40, 49, 420)
+            dec_outs_2 = self.dec_fc_2(
+                dec_outs_2
+            )  # [batch_size, (max_utt_len - 1), max_vocab_cnt] (40, 49, 1770)
         # decoder with structured attention
         else:
             batch_size = dec_input_embedding[0].size(0)  # (40)
             sentence_length = dec_input_embedding[0].size(1)  # (49)
 
-            all_outs_1 = torch.zeros(
-                batch_size, sentence_length, 210
-            )  # (40, 49, 210)
+            all_outs_1 = torch.zeros(batch_size, sentence_length,
+                                     200 + params.n_state)  # (40, 49, 210)
             if params.use_cuda and torch.cuda.is_available():
                 all_outs_1 = all_outs_1.cuda()
             hidden_input_1 = dec_input_1  # LSTM : H (1, 40, 210)
             cell_input_1 = dec_input_1  # LSTM : C (1, 40, 210)
             utt_index = prev_embeddings.size(1)
-            X_prev = input_query[:, :utt_index, :, :]  # [batch_size, 0:utt_index, 2, 210]
-            X_cur = input_query[:, 1:(utt_index +
-                                      1), :, :]   # [batch_size, 1:utt_index+1, 2, 210]
+            X_prev = input_query[:, :
+                                 utt_index, :, :]  # [batch_size, 0:utt_index, 2, 210]
+            X_cur = input_query[:, 1:(
+                utt_index + 1), :, :]  # [batch_size, 1:utt_index+1, 2, 210]
             X_prev_3d = X_prev.contiguous().view(params.batch_size * utt_index,
-                                                 2, 210)
+                                                 2, 200 + params.n_state)
             X_cur_3d = X_cur.contiguous().view(params.batch_size * utt_index,
-                                               2, 210)
+                                               2, 200 + params.n_state)
 
             # X^K dot X^{K+1}
             X_prev_times_X_cur = X_prev_3d.bmm(X_cur_3d.transpose(1, 2)).view(
@@ -165,7 +173,7 @@ class LinearVAECell(nn.Module):
                                         1).unsqueeze(2).repeat(
                                             1, utt_index, 2, 1).view(
                                                 params.batch_size * utt_index,
-                                                2, 210)
+                                                2, 200 + params.n_state)
 
                     # X^K dot Q
                     X_prev_times_Q = X_prev_3d.bmm(Q.transpose(1, 2)).view(
@@ -206,8 +214,8 @@ class LinearVAECell(nn.Module):
                 dim=2)  # [1, batch, 2 * (state_cell_size + 200)]
             # To keep two queries having the same dimension(state_cell_size + 200)
             all_outs_2 = torch.zeros(
-                batch_size, sentence_length,
-                210)  # 200 + params.n_state, record the output
+                batch_size, sentence_length, 200 +
+                params.n_state)  # 200 + params.n_state, record the output
             if params.use_cuda and torch.cuda.is_available():
                 all_outs_2 = all_outs_2.cuda()
 
@@ -224,7 +232,7 @@ class LinearVAECell(nn.Module):
                                         1).unsqueeze(2).repeat(
                                             1, utt_index, 2, 1).view(
                                                 params.batch_size * utt_index,
-                                                2, 210)
+                                                2, 200 + params.n_state)
 
                     # X^K dot Q
                     X_prev_times_Q = X_prev_3d.bmm(Q.transpose(1, 2)).view(
@@ -264,18 +272,21 @@ class LinearVAECell(nn.Module):
         # for computing BOW loss
         bow_logits1 = bow_logits2 = None
         if params.with_BOW:
-            bow_fc1 = self.bow_fc1(torch.squeeze(dec_input_1, dim=0))  # (40, 400)
+            bow_fc1 = self.bow_fc1(torch.squeeze(dec_input_1,
+                                                 dim=0))  # (40, 400)
             bow_fc1 = torch.tanh(bow_fc1)
             if params.dropout not in (None, 0):
                 bow_fc1 = self.dropout(bow_fc1)
             bow_logits1 = self.bow_project1(
                 bow_fc1)  # [batch_size, max_vocab_cnt] (40, 1770)
 
-            bow_fc2 = self.bow_fc2(torch.squeeze(dec_input_2_h, dim=0))  # (40, 400)
+            bow_fc2 = self.bow_fc2(torch.squeeze(dec_input_2_h,
+                                                 dim=0))  # (40, 400)
             bow_fc2 = torch.tanh(bow_fc2)
             if params.dropout not in (None, 0):
                 bow_fc2 = self.dropout(bow_fc2)
-            bow_logits2 = self.bow_project2(bow_fc2)  # [batch_size, max_vocab_cnt] (40, 1770)
+            bow_logits2 = self.bow_project2(
+                bow_fc2)  # [batch_size, max_vocab_cnt] (40, 1770)
         return net2, dec_outs_1, dec_outs_2, bow_logits1, bow_logits2
 
     def forward(self,
@@ -317,13 +328,16 @@ class LinearVAECell(nn.Module):
             log_p_z = torch.log(p_z + 1e-20)
 
         else:
-            net3 = self.transit_mlp(h_prev)  # h_prev: [batch_size, n_state], net3: [batch_size, 100]
+            net3 = self.transit_mlp(
+                h_prev
+            )  # h_prev: [batch_size, n_state], net3: [batch_size, 100]
             p_z = self.transit_fc(net3)  # [batch_size, n_state]
             p_z = F.softmax(p_z, dim=1)
             log_p_z = torch.log(p_z + 1e-20)
 
-        recur_input = torch.cat([net2, inputs],
-                                dim=1)  # [batch_size, encoding_cell_size * 2 + 200]
+        recur_input = torch.cat(
+            [net2, inputs],
+            dim=1)  # [batch_size, encoding_cell_size * 2 + 200]
         next_state = self.state_rnn(recur_input, state)
 
         losses = BPR_BOW_loss(output_tokens,
