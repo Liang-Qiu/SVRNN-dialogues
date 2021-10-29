@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import random
 import os
 import time
@@ -230,7 +228,6 @@ def main(args):
             for var in param_vars
             if getattr(params, var) != None
         }
-        writer.add_hparams(params_dict, {"NA": 0})
 
         writer.add_text('Hyperparameters', pp(params, output=False))
 

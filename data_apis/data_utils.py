@@ -5,6 +5,7 @@ from __future__ import division
 
 import numpy as np
 import torch
+from loguru import logger
 
 
 # Data feed
@@ -29,7 +30,11 @@ class LongDataLoader(object):
     def _prepare_batch(self, cur_grid, prev_grid):
         raise NotImplementedError("Have to override prepare batch")
 
-    def epoch_init(self, batch_size, shuffle=True, intra_shuffle=True):
+    def epoch_init(self,
+                   batch_size,
+                   shuffle=True,
+                   intra_shuffle=True,
+                   no_leftover=False):
         assert len(self.indexes) == self.data_size and len(
             self.data_lens) == self.data_size
 
@@ -43,6 +48,10 @@ class LongDataLoader(object):
         for i in range(temp_num_batch):
             self.batch_indexes.append(
                 self.indexes[i * self.batch_size:(i + 1) * self.batch_size])
+        # No left over
+        if no_leftover:
+            self.batch_indexes.append(self.indexes[(temp_num_batch *
+                                                    self.batch_size):])
 
         left_over = self.data_size - temp_num_batch * batch_size
 
@@ -82,10 +91,6 @@ class LongDataLoader(object):
     def next_batch(self):
         if self.ptr < self.num_batch:
             current_index_list = self.batch_indexes[self.ptr]
-            # if self.ptr > 0:
-            #     prev_grid = self.grid_indexes[self.ptr-1]
-            # else:
-            #     prev_grid = None
             self.ptr += 1
             return self._prepare_batch(current_index_list)
         else:
@@ -114,8 +119,9 @@ class SWDADataLoader(LongDataLoader):
         self.max_dialog_size = max_dialog_len
         self.labeled = labeled
         self.device = device
-        print("Max dialog len %d and min dialog len %d and avg len %f" %
-              (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
+        logger.info(
+            "Max dialog len %d and min dialog len %d and avg len %f" %
+            (np.max(all_lens), np.min(all_lens), float(np.mean(all_lens))))
         # self.indexes = list(np.argsort(all_lens))
         self.indexes = list(range(self.data_size))
         np.random.shuffle(self.indexes)
@@ -174,7 +180,12 @@ class SWDADataLoader(LongDataLoader):
             usr_full_mask.append(dialog_usr_mask)
             sys_full_mask.append(dialog_sys_mask)
 
-        # initial_prev_zt = np.ones()
+        # logger.info(f"Preparing batch, batch size: {len(cur_index_list)}")
+        # logger.info(f"usr_input_sent: {usr_input_sent[0]}")
+        # logger.info(f"sys_input_sent: {sys_input_sent}")
+        # logger.info(f"usr_full_mask: {usr_full_mask[0]}")
+        # logger.info(f"sys_full_mask: {sys_full_mask}")
+        # logger.info(f"dialog_lens: {dialog_lens}")
 
         return torch.tensor(usr_input_sent).to(self.device), torch.tensor(sys_input_sent).to(self.device), torch.tensor(dialog_lens).to(self.device), \
                torch.tensor(usr_full_mask).to(self.device), torch.tensor(sys_full_mask).to(self.device)

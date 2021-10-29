@@ -1,13 +1,8 @@
-from __future__ import print_function
-from __future__ import division
-
 import sys
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import matplotlib
 
 sys.path.append("..")
 import params
@@ -22,7 +17,6 @@ def show_deps(tree):
 
 
 class TreeVRNN(nn.Module):
-
     def __init__(self):
         super(TreeVRNN, self).__init__()
 
@@ -79,7 +73,8 @@ class TreeVRNN(nn.Module):
                 sent_embedding[i] = sent_embeddings[i, enc_lens[i] - 1, :]
 
         sent_embedding = sent_embedding.view(
-            -1, params.max_dialog_len, params.encoding_cell_size)  # (5, 9, 400)
+            -1, params.max_dialog_len,
+            params.encoding_cell_size)  # (5, 9, 400)
 
         if params.dropout not in (None, 0):
             sent_embedding = self.dropout(sent_embedding)
@@ -98,11 +93,11 @@ class TreeVRNN(nn.Module):
         log_q_z_list = []
 
         if params.cell_type == "gru":
-            state = torch.zeros(params.batch_size, params.state_cell_size)
+            state = torch.zeros(params.batch_size, params.n_state)
             if params.use_cuda and torch.cuda.is_available():
                 state = state.cuda()
         else:
-            h = c = torch.zeros(params.batch_size, params.state_cell_size)
+            h = c = torch.zeros(params.batch_size, params.n_state)
             if params.use_cuda and torch.cuda.is_available():
                 h = h.cuda()
                 c = c.cuda()

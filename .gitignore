@@ -2,12 +2,14 @@ log/
 .vscode/
 .idea/
 .git_backup/
+__MACOSX/
 interpretion.py
 
 # All .DS_Store related files
 **/.DS_Store
 
 # Dataset Directory
+/data/MultiWOZ_2.1/
 /data/cambridge_data/
 /data/weather_data/
 /data/simdial/*.pkl
