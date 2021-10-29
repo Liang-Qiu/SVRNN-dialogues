@@ -1,14 +1,14 @@
 """Global parameters.
 """
-max_epoch = 60  # max number of epoch of training
-use_cuda = False
-gpu_idx = 0
-seed = 233
-max_vocab_cnt = 1770
+max_epoch = 40  # max number of epoch of training
+use_cuda = True  # use GPU or not
+gpu_idx = 0  # index of GPU where to run
+seed = 233  # random seed
+max_vocab_cnt = 1770  # max number of words in vocabulary (2300 for mwoz:restaurant)
 word2vec_path = None  # The path to word2vec. Can be None.
 log_dir = "log"  # Experiment results directory.
-use_glove = False
-glove_path = "/home/liang/Workspace/Corpus/glove.840B.300d.txt"
+use_glove = False  # Use GloVe or not
+glove_path = "/home/liang/Workspace/Corpus/glove.840B.300d.txt"  # The path to GloVe.
 use_test_batch = False  # Use test dataset for structure interpretion
 
 # Weather, Restaurant, Simdial
@@ -30,14 +30,14 @@ mwoz_domains = ["taxi", "restaurant", "hotel", "attraction", "train"]
 test_domain = "hotel"
 
 # tree_vae config
-max_enc_steps = 50
-max_dec_steps = 50
-print_after = 10
-n_training_steps = 100
+max_enc_steps = 50  # max timesteps of encoder (max source text tokens)     
+max_dec_steps = 50  # max timesteps of decoder (max summary tokens)                                    
+print_after = 10  # print every N steps
+n_training_steps = 100  # Number of training steps
 eval_num = 100  # number of samples to evaluate
 
 # linear_vae config
-n_state = 10  # Number of states.with open(FLAGS.result_path, "w") as fh:
+n_state = 10  # Number of states. This is subject to change in train_multiwoz.py
 temperature = 0.5  # temperature for gumbel softmax
 
 # Network general
@@ -47,7 +47,7 @@ embed_size = 300  # word embedding size
 max_utt_len = 50  # max number of words in an utterance
 max_dialog_len = 13  # max number of turns in a dialog
 num_layer = 1  # number of context RNN layers
-use_struct_attention = True
+use_struct_attention = False # use structure attention or not
 attention_type = "concat"  #dot, general, concat
 
 # Optimization parameters
@@ -56,20 +56,20 @@ grad_clip = 5.0  # gradient abs max cut
 init_w = 0.08  # uniform random from [-init_w, init_w]
 batch_size = 40  # mini-batch size
 init_lr = 0.001  # initial learning rate
-lr_decay = 0.6
+lr_decay = 0.6  # learning rate decay rate
 dropout = 0.5  # drop out rate
 improve_threshold = 0.996  # for early stopping
 patient_increase = 2.0  # for early stopping
-early_stop = True
+early_stop = True   # for early stopping
 grad_noise = 0.0  # inject gradient noise?
 
 with_BOW = True
 kl_loss_weight = 1  # weight of the kl_loss
 bow_loss_weight = 0.5  # weight of the bow_loss
 with_label_loss = False  # semi-supervised or not
-with_BPR = True
+with_BPR = True # use BPR loss or not
 with_direct_transition = False  # direct prior transition prob
-with_word_weights = False
+with_word_weights = False  # use word weights or not
 
 if with_word_weights:
     with open(rev_vocab_dir, "r") as fh:

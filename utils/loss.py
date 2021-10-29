@@ -127,6 +127,8 @@ def BPR_BOW_loss_single(output_tokens,
     rc_loss = torch.sum(rc_loss)
 
     # KL_loss
+    # https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    # https://en.wikipedia.org/wiki/Evidence_lower_bound
     kl_loss = (log_q_z - log_p_z) * q_z
     kl_loss = torch.sum(kl_loss)
 
