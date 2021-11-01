@@ -37,7 +37,7 @@ class LinearVRNN(nn.Module):
         self.embedding = nn.Embedding(params.max_vocab_cnt,
                                       params.embed_size)  # (1770, 300)
         self.vae_cell = LinearVAECell(
-            state_is_tuple=True if self.cell_type == "lstm" else False)
+            state_is_tuple=True if params.cell_type == "lstm" else False)
 
         if params.dropout not in (None, 0):
             self.dropout = nn.Dropout(params.dropout)  # 0.5
@@ -61,6 +61,12 @@ class LinearVRNN(nn.Module):
                 -1, params.max_utt_len
             )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
             sys_input_sent = sys_input_sent.view(
+                -1, params.max_utt_len
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+            usr_input_mask = usr_input_mask.view(
+                -1, params.max_utt_len
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+            sys_input_mask = sys_input_mask.view(
                 -1, params.max_utt_len
             )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
 

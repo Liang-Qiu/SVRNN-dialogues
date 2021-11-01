@@ -4,7 +4,7 @@ max_epoch = 40  # max number of epoch of training
 use_cuda = True  # use GPU or not
 gpu_idx = 0  # index of GPU where to run
 seed = 233  # random seed
-max_vocab_cnt = 1770  # max number of words in vocabulary (2300 for mwoz:restaurant)
+max_vocab_cnt = 29600  # max number of words in vocabulary (2300 for mwoz:restaurant; 1700 for mwoz:other; 29600 for bert)
 word2vec_path = None  # The path to word2vec. Can be None.
 log_dir = "log"  # Experiment results directory.
 use_glove = False  # Use GloVe or not
@@ -41,7 +41,7 @@ n_state = 10  # Number of states. This is subject to change in train_multiwoz.py
 temperature = 0.5  # temperature for gumbel softmax
 
 # Network general
-use_bert = False  # Use BERT or not for utterance encoding
+use_bert = True  # Use BERT or not for utterance encoding
 cell_type = "lstm"  # gru or lstm
 encoding_cell_size = 400  # size of the rnn
 embed_size = 300  # word embedding size

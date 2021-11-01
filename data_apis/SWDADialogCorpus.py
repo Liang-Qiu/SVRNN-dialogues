@@ -8,8 +8,9 @@ import numpy as np
 import nltk
 import gensim
 from loguru import logger
+from transformers import AutoTokenizer
 
-from sklearn.preprocessing import OneHotEncoder
+import params
 
 
 class SWDADialogCorpus(object):
@@ -36,6 +37,9 @@ class SWDADialogCorpus(object):
         self.label_id = 2
         self.labeled = labeled
         self.sil_utt = ["<s>", "<sil>", "</s>"]
+        if params.use_bert:
+            self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
         data = pkl.load(open(self._path, "rb"))
         self.train_corpus = self.process(data["train"])
         logger.info("Printing dialog examples from train set")
@@ -47,8 +51,9 @@ class SWDADialogCorpus(object):
         self.test_corpus = self.process(data["test"])
         if self.labeled:
             self.labeled_corpus = self.process(data["labeled"], labeled=True)
-        self.build_vocab(max_vocab_cnt)
-        self.load_word2vec()
+        if not params.use_bert:  # BERT uses the WordPiece tokenizer
+            self.build_vocab(max_vocab_cnt)
+            self.load_word2vec()
         print("Done loading corpus")
 
     def process(self, data, labeled=False):
@@ -67,12 +72,16 @@ class SWDADialogCorpus(object):
             dialog = []
             dialog_labels = []
             for turn in l:
-                usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
-                    turn[1].lower()) + ["</s>"]
-                sys_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
-                    turn[2].lower()) + ["</s>"]
-                new_utts.append(usr_utt)
-                new_utts.append(sys_utt)
+                if params.use_bert:
+                    usr_utt = self.tokenizer.tokenize(
+                        f"[CLS] {turn.split(' | ')[0]} [SEP]")
+                    sys_utt = self.tokenizer.tokenize(
+                        f"[CLS] {turn.split(' | ')[1]} [SEP]")
+                else:
+                    usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
+                        turn.split(' | ')[0].lower()) + ["</s>"]
+                    sys_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
+                        turn.split(' | ')[1].lower()) + ["</s>"]
 
                 all_lenes.extend([len(usr_utt)])
                 all_lenes.extend([len(sys_utt)])
@@ -106,8 +115,8 @@ class SWDADialogCorpus(object):
         print(
             "Load corpus with train size {}, valid size {}, \n raw vocab size {}, vocab size {} "
             "at cut_off {} OOV rate {}".format(
-                len(self.train_corpus[0]), len(self.test_corpus[0]), raw_vocab_size,
-                len(vocab_count), vocab_count[-1][1],
+                len(self.train_corpus[0]), len(self.test_corpus[0]),
+                raw_vocab_size, len(vocab_count), vocab_count[-1][1],
                 float(discard_wc) / len(all_words)))
 
         self.vocab = ["<pad>", "<unk>"] + [t for t, cnt in vocab_count]
@@ -189,7 +198,32 @@ class SWDADialogCorpus(object):
                 results.append(temp)
             return results
 
-        id_train = _to_id_corpus(self.train_corpus[self.dialog_id])
+        def _to_id_bert(data):
+            results = []
+            max_id = -1
+            for dialog in data:
+                temp = []
+                # convert utterance and feature into numeric numbers
+                for usr_sent, sys_sent in dialog:
+                    usr_ids = self.tokenizer.convert_tokens_to_ids(usr_sent)
+                    sys_ids = self.tokenizer.convert_tokens_to_ids(sys_sent)
+                    temp_turn = [usr_ids, sys_ids]
+                    for i in usr_ids:
+                        if i > max_id:
+                            max_id = i
+                    for j in sys_ids:
+                        if j > max_id:
+                            max_id = j
+                    temp.append(temp_turn)
+                results.append(temp)
+            logger.warning("Max id in BERT is %d" % max_id)
+            return results
+
+        if not params.use_bert:
+            id_train = _to_id_corpus(self.train_corpus[self.dialog_id])
+        else:
+            id_train = _to_id_bert(self.train_corpus[self.dialog_id])
+
         if self.labeled:
             id_labeled = _to_id_corpus(self.labeled_corpus[self.dialog_id])
         id_test = _to_id_corpus(self.test_corpus[self.dialog_id])

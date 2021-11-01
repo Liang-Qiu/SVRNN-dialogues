@@ -7,7 +7,7 @@ import numpy as np
 import nltk
 import gensim
 from loguru import logger
-from huggingface import AutoTokenizer
+from transformers import AutoTokenizer
 
 import params
 
@@ -65,8 +65,10 @@ class MultiWOZCorpus(object):
             dial_text = dial["text"]
             for turn in dial_text:
                 if params.use_bert:
-                    usr_utt = self.tokenizer.tokenize(turn.split(' | ')[0])
-                    sys_utt = self.tokenizer.tokenize(turn.split(' | ')[1])
+                    usr_utt = self.tokenizer.tokenize(
+                        f"[CLS] {turn.split(' | ')[0]} [SEP]")
+                    sys_utt = self.tokenizer.tokenize(
+                        f"[CLS] {turn.split(' | ')[1]} [SEP]")
                 else:
                     usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
                         turn.split(' | ')[0].lower()) + ["</s>"]
@@ -153,8 +155,8 @@ class MultiWOZCorpus(object):
                 temp = []
                 # convert utterance and feature into numeric numbers
                 for usr_sent, sys_sent in dialog:
-                    usr_ids = self.tokenizer.convert_token_to_ids(usr_sent)
-                    sys_ids = self.tokenizer.convert_token_to_ids(sys_sent)
+                    usr_ids = self.tokenizer.convert_tokens_to_ids(usr_sent)
+                    sys_ids = self.tokenizer.convert_tokens_to_ids(sys_sent)
                     temp_turn = [usr_ids, sys_ids]
                     for i in usr_ids:
                         if i > max_id:

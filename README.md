@@ -67,16 +67,16 @@ After training, there will be a ckpt_dir under `log/linear_vrnn` or `log/tree_vr
 
 ```bash
 # SimDial
-python train_linear_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_59.pt
+python train_linear_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_39.pt
 # MultiWOZ
-python train_multiwoz.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_59.pt
+python train_multiwoz.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_39.pt
 ```
 
 or
 
 ```bash
 # Ubuntu Chat Corpus
-python train_tree_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_59.pt
+python train_tree_vrnn.py --decode --ckpt_dir run1532935232 --ckpt_name vrnn_39.pt
 ```
 
 ## Citation
