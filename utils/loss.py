@@ -140,7 +140,6 @@ def BPR_BOW_loss_single(output_tokens,
         log_p_z_prime = torch.log(p_z_prime + 1e-20)
 
         kl_loss = (log_q_z_prime - log_p_z_prime) * q_z_prime
-        # TODO: BPR?
         kl_loss = params.kl_loss_weight * torch.sum(kl_loss)
         # kl_loss = torch.div(torch.sum(kl_loss), params.batch_size)
 

@@ -21,10 +21,8 @@ class LinearVRNN(nn.Module):
 
         if params.use_bert:
             self.bert = AutoModel.from_pretrained("bert-base-uncased")
+            self.bert_mlp = nn.Linear(768, params.encoding_cell_size)
         else:
-
-            self.embedding = nn.Embedding(params.max_vocab_cnt,
-                                          params.embed_size)  # (1770, 300)
             if params.cell_type == "gru":
                 self.sent_rnn = nn.GRU(params.embed_size,
                                        params.encoding_cell_size,
@@ -36,7 +34,8 @@ class LinearVRNN(nn.Module):
                     params.encoding_cell_size,  # 400
                     params.num_layer,  # 1
                     batch_first=True)
-
+        self.embedding = nn.Embedding(params.max_vocab_cnt,
+                                      params.embed_size)  # (1770, 300)
         self.vae_cell = LinearVAECell(
             state_is_tuple=True if self.cell_type == "lstm" else False)
 
@@ -58,12 +57,22 @@ class LinearVRNN(nn.Module):
                 training=True):
         #------------------------- utterance embedding -------------------------#
         if params.use_bert:
-            usr_input_embedding = self.bert(
-                usr_input_sent,
-                attention_mask=usr_input_mask).pooler_output  # [CLS] token
-            sys_input_embedding = self.bert(
-                sys_input_sent,
-                attention_mask=sys_input_mask).pooler_output  # [CLS] token
+            usr_input_sent = usr_input_sent.view(
+                -1, params.max_utt_len
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+            sys_input_sent = sys_input_sent.view(
+                -1, params.max_utt_len
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+
+            usr_sent_embedding = self.bert(
+                usr_input_sent, attention_mask=usr_input_mask
+            ).pooler_output  # [CLS] token (520, 768)
+            sys_sent_embedding = self.bert(
+                sys_input_sent, attention_mask=sys_input_mask
+            ).pooler_output  # [CLS] token (520, 768)
+
+            usr_sent_embedding = self.bert_mlp(usr_sent_embedding)
+            sys_sent_embedding = self.bert_mlp(sys_sent_embedding)
         else:
             usr_input_embedding = self.embedding(
                 usr_input_sent
@@ -85,10 +94,10 @@ class LinearVRNN(nn.Module):
             sys_sent_mask = torch.sign(
                 sys_input_mask.view(-1, params.max_utt_len)
             )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
-            usr_sent_len = torch.sum(usr_sent_mask,
-                                    dim=1)  # [batch_size * max_dialog_len] (520)
-            sys_sent_len = torch.sum(sys_sent_mask,
-                                    dim=1)  # [batch_size * max_dialog_len] (520)
+            usr_sent_len = torch.sum(
+                usr_sent_mask, dim=1)  # [batch_size * max_dialog_len] (520)
+            sys_sent_len = torch.sum(
+                sys_sent_mask, dim=1)  # [batch_size * max_dialog_len] (520)
             if params.cell_type == "gru":
                 usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
                 sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)
@@ -111,15 +120,13 @@ class LinearVRNN(nn.Module):
                 usr_sent_embedding = usr_sent_embedding.cuda()
                 sys_sent_embedding = sys_sent_embedding.cuda()
 
-        for i in range(usr_sent_embedding.shape[0]):
-            if usr_sent_len[i] > 0:
-                usr_sent_embedding[i] = usr_sent_embeddings[i,
-                                                            usr_sent_len[i] -
-                                                            1, :]
-            if sys_sent_len[i] > 0:
-                sys_sent_embedding[i] = sys_sent_embeddings[i,
-                                                            sys_sent_len[i] -
-                                                            1, :]
+            for i in range(usr_sent_embedding.shape[0]):
+                if usr_sent_len[i] > 0:
+                    usr_sent_embedding[i] = usr_sent_embeddings[
+                        i, usr_sent_len[i] - 1, :]
+                if sys_sent_len[i] > 0:
+                    sys_sent_embedding[i] = sys_sent_embeddings[
+                        i, sys_sent_len[i] - 1, :]
 
         usr_sent_embedding = usr_sent_embedding.view(
             -1, params.max_dialog_len, params.encoding_cell_size
@@ -184,6 +191,7 @@ class LinearVRNN(nn.Module):
                 c = c.cuda()
             state = (h, c)
         # TODO: this for loop has not be parallelized
+        # stop training for papdded turns
         for utt in range(params.max_dialog_len):
             inputs = joint_embedding[:, utt, :]
             dec_input_emb = [

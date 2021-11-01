@@ -7,6 +7,7 @@ import numpy as np
 import nltk
 import gensim
 from loguru import logger
+from huggingface import AutoTokenizer
 
 import params
 
@@ -34,6 +35,8 @@ class MultiWOZCorpus(object):
         self.label_id = 2
         self.labeled = labeled
         self.sil_utt = ["<s>", "<sil>", "</s>"]
+        if params.use_bert:
+            self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
         data = json.load(open(self._path, "r"))
         data = data[params.test_domain]
@@ -45,9 +48,9 @@ class MultiWOZCorpus(object):
         for i in range(3):
             dialog = self.train_corpus[self.dialog_id][i]
             logger.info("Example %d: %s" % (i, dialog))
-
-        self.build_vocab(max_vocab_cnt)
-        self.load_word2vec()
+        if not params.use_bert:  # BERT uses the WordPiece tokenizer
+            self.build_vocab(max_vocab_cnt)
+            self.load_word2vec()
         logger.info("Done loading corpus")
 
     def process(self, data, labeled=False):
@@ -61,10 +64,14 @@ class MultiWOZCorpus(object):
             dialog = []
             dial_text = dial["text"]
             for turn in dial_text:
-                usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
-                    turn.split(' | ')[0].lower()) + ["</s>"]
-                sys_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
-                    turn.split(' | ')[1].lower()) + ["</s>"]
+                if params.use_bert:
+                    usr_utt = self.tokenizer.tokenize(turn.split(' | ')[0])
+                    sys_utt = self.tokenizer.tokenize(turn.split(' | ')[1])
+                else:
+                    usr_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
+                        turn.split(' | ')[0].lower()) + ["</s>"]
+                    sys_utt = ["<s>"] + nltk.WordPunctTokenizer().tokenize(
+                        turn.split(' | ')[1].lower()) + ["</s>"]
                 new_utts.append(usr_utt)
                 new_utts.append(sys_utt)
 
@@ -139,7 +146,31 @@ class MultiWOZCorpus(object):
                 results.append(temp)
             return results
 
-        id_train = _to_id_corpus(self.train_corpus[self.dialog_id])
+        def _to_id_bert(data):
+            results = []
+            max_id = -1
+            for dialog in data:
+                temp = []
+                # convert utterance and feature into numeric numbers
+                for usr_sent, sys_sent in dialog:
+                    usr_ids = self.tokenizer.convert_token_to_ids(usr_sent)
+                    sys_ids = self.tokenizer.convert_token_to_ids(sys_sent)
+                    temp_turn = [usr_ids, sys_ids]
+                    for i in usr_ids:
+                        if i > max_id:
+                            max_id = i
+                    for j in sys_ids:
+                        if j > max_id:
+                            max_id = j
+                    temp.append(temp_turn)
+                results.append(temp)
+            logger.warning("Max id in BERT is %d" % max_id)
+            return results
+
+        if not params.use_bert:
+            id_train = _to_id_corpus(self.train_corpus[self.dialog_id])
+        else:
+            id_train = _to_id_bert(self.train_corpus[self.dialog_id])
 
         for i in range(3):
             logger.info(f"Example ID %d: %s" % (i, id_train[i]))
