@@ -5,6 +5,7 @@ import sys
 import torch
 from torch import nn
 from loguru import logger
+from transformers import AutoModel
 
 sys.path.append("..")
 import params
@@ -18,22 +19,27 @@ class LinearVRNN(nn.Module):
     def __init__(self):
         super(LinearVRNN, self).__init__()
 
-        self.embedding = nn.Embedding(params.max_vocab_cnt,
-                                      params.embed_size)  # (1770, 300)
-
-        if params.cell_type == "gru":
-            self.sent_rnn = nn.GRU(params.embed_size,
-                                   params.encoding_cell_size,
-                                   params.num_layer,
-                                   batch_first=True)
-            self.vae_cell = LinearVAECell(state_is_tuple=False)
+        if params.use_bert:
+            self.bert = AutoModel.from_pretrained("bert-base-uncased")
         else:
-            self.sent_rnn = nn.LSTM(
-                params.embed_size,  # 300
-                params.encoding_cell_size,  # 400
-                params.num_layer,  # 1
-                batch_first=True)
-            self.vae_cell = LinearVAECell(state_is_tuple=True)
+
+            self.embedding = nn.Embedding(params.max_vocab_cnt,
+                                          params.embed_size)  # (1770, 300)
+            if params.cell_type == "gru":
+                self.sent_rnn = nn.GRU(params.embed_size,
+                                       params.encoding_cell_size,
+                                       params.num_layer,
+                                       batch_first=True)
+            else:
+                self.sent_rnn = nn.LSTM(
+                    params.embed_size,  # 300
+                    params.encoding_cell_size,  # 400
+                    params.num_layer,  # 1
+                    batch_first=True)
+
+        self.vae_cell = LinearVAECell(
+            state_is_tuple=True if self.cell_type == "lstm" else False)
+
         if params.dropout not in (None, 0):
             self.dropout = nn.Dropout(params.dropout)  # 0.5
         if params.use_struct_attention:
@@ -51,52 +57,59 @@ class LinearVRNN(nn.Module):
                 sys_input_mask,
                 training=True):
         #------------------------- utterance embedding -------------------------#
-        usr_input_embedding = self.embedding(
-            usr_input_sent
-        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
-        usr_input_embedding = usr_input_embedding.view(
-            [-1, params.max_utt_len, params.embed_size]
-        )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
-
-        sys_input_embedding = self.embedding(
-            sys_input_sent
-        )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
-        sys_input_embedding = sys_input_embedding.view(
-            [-1, params.max_utt_len, params.embed_size]
-        )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
-
-        usr_sent_mask = torch.sign(
-            usr_input_mask.view(-1, params.max_utt_len)
-        )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
-        sys_sent_mask = torch.sign(
-            sys_input_mask.view(-1, params.max_utt_len)
-        )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
-        usr_sent_len = torch.sum(usr_sent_mask,
-                                 dim=1)  # [batch_size * max_dialog_len] (520)
-        sys_sent_len = torch.sum(sys_sent_mask,
-                                 dim=1)  # [batch_size * max_dialog_len] (520)
-        # TODO: replace with BERT embedding
-        if params.cell_type == "gru":
-            usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
-            sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)
+        if params.use_bert:
+            usr_input_embedding = self.bert(
+                usr_input_sent,
+                attention_mask=usr_input_mask).pooler_output  # [CLS] token
+            sys_input_embedding = self.bert(
+                sys_input_sent,
+                attention_mask=sys_input_mask).pooler_output  # [CLS] token
         else:
-            usr_sent_embeddings, (_, _) = self.sent_rnn(
-                usr_input_embedding
-            )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
+            usr_input_embedding = self.embedding(
+                usr_input_sent
+            )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
+            usr_input_embedding = usr_input_embedding.view(
+                [-1, params.max_utt_len, params.embed_size]
+            )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
 
-            sys_sent_embeddings, (_, _) = self.sent_rnn(
-                sys_input_embedding
-            )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
+            sys_input_embedding = self.embedding(
+                sys_input_sent
+            )  # [batch_size, max_dialog_len, max_utt_len, embed_size] (40, 13, 50, 300)
+            sys_input_embedding = sys_input_embedding.view(
+                [-1, params.max_utt_len, params.embed_size]
+            )  # [batch_size * max_dialog_len, max_utt_len, embed_size] (520, 50, 300)
 
-        usr_sent_embedding = torch.zeros(
-            params.batch_size * params.max_dialog_len,
-            params.encoding_cell_size)  # (520, 400)
-        sys_sent_embedding = torch.zeros(
-            params.batch_size * params.max_dialog_len,
-            params.encoding_cell_size)
-        if params.use_cuda and torch.cuda.is_available():
-            usr_sent_embedding = usr_sent_embedding.cuda()
-            sys_sent_embedding = sys_sent_embedding.cuda()
+            usr_sent_mask = torch.sign(
+                usr_input_mask.view(-1, params.max_utt_len)
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+            sys_sent_mask = torch.sign(
+                sys_input_mask.view(-1, params.max_utt_len)
+            )  # [batch_size * max_dialog_len, max_utt_len] (520, 50)
+            usr_sent_len = torch.sum(usr_sent_mask,
+                                    dim=1)  # [batch_size * max_dialog_len] (520)
+            sys_sent_len = torch.sum(sys_sent_mask,
+                                    dim=1)  # [batch_size * max_dialog_len] (520)
+            if params.cell_type == "gru":
+                usr_sent_embeddings, _ = self.sent_rnn(usr_input_embedding)
+                sys_sent_embeddings, _ = self.sent_rnn(sys_input_embedding)
+            else:
+                usr_sent_embeddings, (_, _) = self.sent_rnn(
+                    usr_input_embedding
+                )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
+
+                sys_sent_embeddings, (_, _) = self.sent_rnn(
+                    sys_input_embedding
+                )  # [batch_size * max_dialog_len, max_utt_len, encoding_cell_size] (520, 50, 400)
+
+            usr_sent_embedding = torch.zeros(
+                params.batch_size * params.max_dialog_len,
+                params.encoding_cell_size)  # (520, 400)
+            sys_sent_embedding = torch.zeros(
+                params.batch_size * params.max_dialog_len,
+                params.encoding_cell_size)
+            if params.use_cuda and torch.cuda.is_available():
+                usr_sent_embedding = usr_sent_embedding.cuda()
+                sys_sent_embedding = sys_sent_embedding.cuda()
 
         for i in range(usr_sent_embedding.shape[0]):
             if usr_sent_len[i] > 0:

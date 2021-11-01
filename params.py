@@ -41,6 +41,7 @@ n_state = 10  # Number of states. This is subject to change in train_multiwoz.py
 temperature = 0.5  # temperature for gumbel softmax
 
 # Network general
+use_bert = False  # Use BERT or not for utterance encoding
 cell_type = "lstm"  # gru or lstm
 encoding_cell_size = 400  # size of the rnn
 embed_size = 300  # word embedding size
