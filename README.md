@@ -2,6 +2,11 @@
 
 This repo contains code for our paper [Structured Attention for Unsupervised Dialogue Structure Induction](https://arxiv.org/pdf/2009.08552.pdf), accepted as a long paper in EMNLP 2020. The codebase is developed on [Unsupervised-Structure-Learning](https://github.com/wyshi/Unsupervised-Structure-Learning) and re-written with PyTorch.
 
+## Notes
+
+* You may find it helpful to check the [bert](https://github.com/Liang-Qiu/SVRNN-dialogues/tree/bert) branch, where utterances are encoded with a pretrained BERT. 
+* Since the metrics SED and SCE rely on estimated state mappings, they have large variance and we consider them unstable. Instead, we evaluate the structure learning performance with clustering metrics, assuming #slots can be estimated by checking a few transcripts. This approach is discussed in this [paper](https://arxiv.org/abs/2203.00073) and open-sourced in this [repo]( https://github.com/salesforce/dialog-flow-extraction).
+
 ## Dependencies
 
 Dependencies are listed in `requirement.txt`. Install them by running
